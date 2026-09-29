@@ -29,6 +29,7 @@
 - [x] Repository git, `.gitignore` (termasuk `.env*`), README awal
 
 **Definition of Done**
+
 - [x] `npm run dev`, `lint`, `typecheck`, dan `test` berjalan tanpa error.
 - [x] Aplikasi terhubung ke database lokal.
 - [x] Aplikasi gagal start dengan pesan jelas jika env wajib hilang.
@@ -78,6 +79,7 @@ Migration awal selesai.
 Database constraint sebagai penjaga akhir, range type dan operator `&&`, partial constraint, perbedaan validasi aplikasi dan integritas database.
 
 **Definition of Done (Phase 1)**
+
 - [x] Migration dapat dijalankan dari database kosong.
 - [x] Seed berjalan dan dapat diulang tanpa duplikasi.
 - [x] Constraint TASK-1.1 terbukti lewat test.
@@ -119,10 +121,10 @@ Phase 0, Phase 1.
 
 **Acceptance Criteria**
 
-- [ ] Login pertama membuat satu record `users`, login kedua tidak menduplikasi.
-- [ ] Setelah login, user kembali ke halaman tujuan (mis. halaman booking).
-- [ ] `callbackUrl` eksternal diabaikan.
-- [ ] Guest yang membuka `/dashboard` diarahkan ke `/login`.
+- [x] Login pertama membuat satu record `users`, login kedua tidak menduplikasi.
+- [x] Setelah login, user kembali ke halaman tujuan (mis. halaman booking).
+- [x] `callbackUrl` eksternal diabaikan.
+- [x] Guest yang membuka `/dashboard` diarahkan ke `/login`.
 
 **Learning Focus**
 
@@ -189,36 +191,37 @@ TASK-2.1, TASK-2.2.
 
 **Acceptance Criteria**
 
-- [ ] Customer mendapat penolakan pada semua route dan aksi `/admin`.
-- [ ] Guest tidak dapat memanggil aksi customer.
-- [ ] Test integrasi membuktikan hal tersebut tanpa lewat UI.
+- [x] Customer mendapat penolakan pada semua route dan aksi `/admin`.
+- [x] Guest tidak dapat memanggil aksi customer.
+- [x] Test integrasi membuktikan hal tersebut tanpa lewat UI.
 
 **Learning Focus**
 
 Authentication vs authorization, defense in depth, mengapa middleware saja tidak cukup, RBAC sederhana.
 
 **Definition of Done (Phase 2)**
-- [ ] Customer login Google, admin login credentials, logout berfungsi.
-- [ ] Route dan aksi terlindungi di server.
-- [ ] Test authorization dasar lulus.
 
-Catatan progres: login admin dan guard sudah teruji dengan PostgreSQL lokal.
-Login Google belum dapat dicoba end-to-end sampai OAuth client lokal
-dikonfigurasi (`AUTH_GOOGLE_ID` dan `AUTH_GOOGLE_SECRET`); karena itu Definition
-of Done fase ini masih terbuka. Test authorization membuktikan helper guard,
-belum menguji seluruh aksi fitur yang akan dibuat pada fase berikutnya.
+- [x] Customer login Google, admin login credentials, logout berfungsi.
+- [x] Route dan aksi terlindungi di server.
+- [x] Test authorization dasar lulus.
+
+Catatan progres: Google OAuth telah dicoba end-to-end pada aplikasi lokal dan
+kembali ke `/dashboard`; logout customer juga berjalan. Integration test
+PostgreSQL mencakup upsert customer tanpa duplikasi, verifikasi email,
+kredensial admin, rate limit, dan guard role. Guard dicek pada aksi yang
+memerlukannya saat fitur masing-masing diimplementasikan.
 
 ---
 
 ## Phase 3 — Package
 
-- [ ] Halaman `/packages` (package aktif, FR-001)
-- [ ] Halaman `/packages/[slug]` (FR-002)
-- [ ] Admin: daftar package, create, update (FR-050)
-- [ ] Admin: aktif/nonaktif (FR-051)
-- [ ] Admin: hapus hanya jika tidak punya booking (FR-052)
-- [ ] Skema validasi Zod untuk package (harga ≥ 0, durasi > 0, slug unik)
-- [ ] State loading, empty, dan error
+- [x] Halaman `/packages` (package aktif, FR-001)
+- [x] Halaman `/packages/[slug]` (FR-002)
+- [x] Admin: daftar package, create, update (FR-050)
+- [x] Admin: aktif/nonaktif (FR-051)
+- [x] Admin: hapus hanya jika tidak punya booking (FR-052)
+- [x] Skema validasi Zod untuk package (harga ≥ 0, durasi > 0, slug unik)
+- [x] State loading, empty, dan error
 
 ### TASK-3.1 — Package Deactivation dan Deletion Rule
 
@@ -244,28 +247,29 @@ Phase 2, Phase 1.
 
 **Acceptance Criteria**
 
-- [ ] Delete package dengan booking ditolak dengan pesan jelas.
-- [ ] Package nonaktif tidak muncul di `/packages` dan slug-nya menghasilkan 404.
-- [ ] Ubah harga tidak mengubah `priceSnapshot` booking lama.
+- [x] Delete package dengan booking ditolak dengan pesan jelas.
+- [x] Package nonaktif tidak muncul di `/packages` dan slug-nya menghasilkan 404.
+- [x] Ubah harga tidak mengubah `priceSnapshot` booking lama.
 
 **Learning Focus**
 
 Soft delete vs hard delete, snapshot data historis, foreign key `RESTRICT`.
 
 **Definition of Done (Phase 3)**
-- [ ] Admin dapat mengelola package sepenuhnya, guest dapat melihatnya.
-- [ ] Semua mutation tervalidasi dan diotorisasi.
+
+- [x] Admin dapat mengelola package sepenuhnya, guest dapat melihatnya.
+- [x] Semua mutation tervalidasi dan diotorisasi.
 
 ---
 
 ## Phase 4 — Availability & Scheduling
 
-- [ ] Admin: atur jam operasional per hari (FR-060)
-- [ ] Admin: schedule block, create dan delete (FR-061)
-- [ ] Konfigurasi booking (slot interval, lead time, max advance)
-- [ ] Util waktu (konversi UTC dan Asia/Jakarta)
-- [ ] `getAvailability` (FR-021, FR-062, FR-063)
-- [ ] UI pemilih tanggal dan slot (sementara tanpa membuat booking)
+- [x] Admin: atur jam operasional per hari (FR-060)
+- [x] Admin: schedule block, create dan delete (FR-061)
+- [x] Konfigurasi booking (slot interval, lead time, max advance)
+- [x] Util waktu (konversi UTC dan Asia/Jakarta)
+- [x] `getAvailability` (FR-021, FR-062, FR-063)
+- [x] UI pemilih tanggal dan slot (sementara tanpa membuat booking)
 
 ### TASK-4.1 — Availability Calculation
 
@@ -295,10 +299,10 @@ TASK-3.1, operating hours, schedule block.
 
 **Acceptance Criteria**
 
-- [ ] Unit test mencakup seluruh edge case di atas.
-- [ ] Slot yang overlap booking, blokir, atau di luar jam tidak muncul.
-- [ ] Slot yang lebih awal dari lead time tidak muncul.
-- [ ] Hold expired tidak memblokir slot pada hasil availability.
+- [x] Unit test mencakup seluruh edge case di atas.
+- [x] Slot yang overlap booking, blokir, atau di luar jam tidak muncul.
+- [x] Slot yang lebih awal dari lead time tidak muncul.
+- [x] Hold expired tidak memblokir slot pada hasil availability.
 
 **Learning Focus**
 
@@ -326,17 +330,18 @@ TASK-4.1.
 
 **Acceptance Criteria**
 
-- [ ] Blokir menghilangkan slot dari availability.
-- [ ] Peringatan menampilkan daftar booking bentrok.
-- [ ] Menghapus blokir mengembalikan slot.
+- [x] Blokir menghilangkan slot dari availability.
+- [x] Peringatan menampilkan daftar booking bentrok.
+- [x] Menghapus blokir mengembalikan slot.
 
 **Learning Focus**
 
 Batas antara aturan yang dijaga database dan aturan yang dijaga aplikasi.
 
 **Definition of Done (Phase 4)**
-- [ ] Availability benar dan teruji unit test.
-- [ ] Admin dapat mengatur jam dan blokir, dan efeknya terlihat pada availability.
+
+- [x] Availability benar dan teruji unit test.
+- [x] Admin dapat mengatur jam dan blokir, dan efeknya terlihat pada availability.
 
 ---
 
@@ -425,6 +430,7 @@ TASK-5.1.
 Idempotent batch job, conditional update, lazy vs scheduled cleanup, keterbatasan cron serverless.
 
 **Definition of Done (Phase 5)**
+
 - [ ] Customer dapat membuat booking end-to-end sampai WAITING_PAYMENT.
 - [ ] Double booking terbukti mustahil lewat test.
 - [ ] Expired booking melepaskan slot.
@@ -520,6 +526,7 @@ TASK-6.1.
 Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), state machine yang tahan event tidak berurutan, mengapa redirect bukan bukti pembayaran.
 
 **Definition of Done (Phase 6)**
+
 - [ ] Alur sandbox lengkap: booking → QRIS → bayar → CONFIRMED otomatis.
 - [ ] Test webhook (valid, duplikat, invalid, terlambat) lulus.
 - [ ] Log webhook tersedia dan tidak membocorkan secret.
@@ -680,6 +687,7 @@ TASK-5.1, TASK-6.2, TASK-2.3.
 State machine transitions, conditional update untuk mencegah race, IDOR, aturan bisnis berbasis waktu.
 
 **Definition of Done (Phase 7)**
+
 - [ ] Customer melihat dan mengelola booking miliknya saja.
 - [ ] Cancel sesuai aturan dan teruji.
 
@@ -740,7 +748,7 @@ Admin menutup atau membatalkan booking dengan aturan transisi yang benar.
 
 **Dependency**
 
-TASK-6.2.
+TASK-6.2, PB-5. Complete/cancel action tetap bagian booking state machine; booking hanya completed setelah sesi photobooth valid atau manual recovery.
 
 **Requirements**
 
@@ -770,6 +778,7 @@ TASK-6.2.
 State machine terpusat, aturan berbasis waktu, audit metadata (`cancelledBy`, `reason`).
 
 **Definition of Done (Phase 8)**
+
 - [ ] Admin dapat menjalankan seluruh siklus booking dari dashboard.
 - [ ] Semua aksi admin diotorisasi server-side dan teruji.
 
@@ -784,6 +793,7 @@ State machine terpusat, aturan berbasis waktu, audit metadata (`cancelledBy`, `r
 - [ ] Tanpa advanced analytics
 
 **Definition of Done**
+
 - [ ] Angka dashboard sesuai data (diverifikasi dengan data seed).
 - [ ] Query efisien untuk data skala kecil dan tidak mengekspos data non-admin.
 
@@ -801,6 +811,7 @@ State machine terpusat, aturan berbasis waktu, audit metadata (`cancelledBy`, `r
 - [ ] Pemeriksaan aksesibilitas dasar
 
 **Definition of Done**
+
 - [ ] Semua halaman publik dapat dipakai dengan baik di HP.
 - [ ] Upload menolak tipe/ukuran tidak valid dan hanya admin yang dapat upload.
 - [ ] Tidak ada halaman kosong tanpa penjelasan.
@@ -854,6 +865,7 @@ Phase 5, Phase 6, Phase 8.
 Menguji invarian di bawah concurrency, transaction isolation, deterministic test design.
 
 **Definition of Done (Phase 11)**
+
 - [ ] Seluruh checklist audit selesai dan temuan diperbaiki atau dicatat.
 - [ ] Test race dan IDOR lulus.
 - [ ] Tidak ada secret bocor.
@@ -869,6 +881,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Script `npm run test`, `test:e2e` dan integrasi CI sederhana (lint, typecheck, test)
 
 **Definition of Done**
+
 - [ ] Semua test lulus secara lokal dan di CI.
 - [ ] Prioritas test dari `AGENTS.md` bagian 17 terpenuhi.
 - [ ] Tidak ada test yang di-skip tanpa alasan tertulis.
@@ -891,6 +904,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] README: deskripsi proyek, screenshot, cara menjalankan lokal, dan tautan demo
 
 **Definition of Done**
+
 - [ ] Alur inti customer dan admin berjalan di URL produksi.
 - [ ] Webhook produksi menerima dan memverifikasi event.
 - [ ] Tidak ada secret di repository atau log.
@@ -900,6 +914,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 ## Final MVP Checklist
 
 **Customer**
+
 - [ ] Google Login
 - [ ] Lihat Package
 - [ ] Pilih Schedule (slot tersedia benar)
@@ -910,6 +925,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Cancel sesuai aturan
 
 **Admin**
+
 - [ ] Login
 - [ ] Lihat Booking (filter dan detail)
 - [ ] Kelola Schedule (jam operasional dan blokir)
@@ -922,6 +938,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Session selesai sebelum booking COMPLETED; recovery manual mencatat alasan
 
 **Photobooth P0**
+
 - [ ] Tidak bergantung provider tertentu; MockBoothProvider mencakup success/failure/unavailable/delay
 - [ ] Local Booth Agent authenticated terpisah, mengirim heartbeat, dan menerima command lewat polling HTTPS
 - [ ] ONLINE/OFFLINE/BUSY/MAINTENANCE ditampilkan benar; booth unavailable ditolak
@@ -929,6 +946,7 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Workflow lengkap dapat dijalankan tanpa software photobooth berbayar atau hardware
 
 **Sistem**
+
 - [ ] Double booking mustahil (terbukti test race)
 - [ ] Webhook idempotent dan tervalidasi
 - [ ] Expired booking melepaskan slot
@@ -936,5 +954,6 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Deploy dan smoke test lulus
 
 **Photobooth P1 (bukan syarat P0)**
+
 - [ ] Satu real provider terpilih berdasarkan dokumentasi dan capability resmi
 - [ ] Provider adapter nyata dapat start session dan hasil sesi diketahui melalui dukungan resmi

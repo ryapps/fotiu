@@ -6,7 +6,7 @@
 
 Core workflow:
 
-Browse Package → Login → Select Schedule → Booking → Payment → Confirmation → Session Management
+Browse Package → Google Login → Select Schedule → Booking → QRIS Payment → Payment Verified → Booking Confirmed → Admin Check-in → Assign Booth → Photo Session → Booking Completed
 
 Stack: Next.js + TypeScript, Tailwind + shadcn/ui, PostgreSQL, Prisma, Auth.js, payment gateway QRIS (default Midtrans sandbox), Vercel. Arsitektur cloud: **modular monolith**. Local Booth Agent adalah service bridge ringan pada komputer studio, bukan cloud microservice atau platform IoT.
 
@@ -14,13 +14,13 @@ Proyek ini dikerjakan satu developer dan **juga untuk belajar**.
 
 ## 2. Primary Goal
 
-Membantu membangun MVP sesuai `PRD.md`, `DESIGN.md`, dan `TASKS.md`.
+Membantu membangun MVP sesuai `docs/PRD.md`, `docs/DESIGN.md`, dan `docs/TASKS.md`.
 
 Urutan authority:
 
-1. `PRD.md` = product requirement
-2. `DESIGN.md` = technical direction
-3. `TASKS.md` = implementation roadmap
+1. `docs/PRD.md` = product requirement
+2. `docs/DESIGN.md` = technical direction
+3. `docs/TASKS.md` = implementation roadmap
 4. Existing codebase = current implementation
 
 Jika ada konflik antar dokumen atau antara dokumen dan code, **jangan diam-diam membuat keputusan baru**. Untuk perubahan scope yang developer minta secara eksplisit, identifikasi konflik yang terdampak dan harmonisasikan empat dokumen dengan solusi paling sederhana sesuai permintaan; tanyakan hanya jika konflik penting masih belum terselesaikan oleh arahan tersebut.
@@ -89,6 +89,8 @@ Jika developer berkata **"jangan kasih solusi"**, agent hanya memberi hint atau 
 - Jangan hard delete data yang dibutuhkan history booking tanpa mempertimbangkan konsekuensinya.
 - Semua waktu disimpan UTC (`timestamptz`), uang sebagai integer Rupiah.
 - Custom SQL (mis. exclusion constraint) ditulis di migration dan didokumentasikan.
+- Booth/device dan photo session tetap memiliki foreign key. Gunakan partial unique constraint untuk mencegah lebih dari satu sesi aktif pada booth/booking; jangan menambah constraint satu-sesi-per-booking yang menghalangi retry ter-audit.
+- Simpan device token sebagai hash di cloud; jangan simpan raw token di database, repository, atau log.
 
 ## 8. Booking Rules
 
@@ -102,6 +104,8 @@ Agent harus menjaga rule:
 - `CONFIRMED` memblokir slot,
 - `COMPLETED` menyimpan history,
 - perubahan status hanya lewat fungsi state machine terpusat dan update bersyarat status.
+- Booking `COMPLETED` hanya setelah photo session `COMPLETED`, atau manual recovery admin dengan alasan/audit yang valid.
+- Status booking dan photo session berbeda. Event session gagal tidak boleh menyelesaikan booking.
 
 ## 9. Payment Rules
 
@@ -140,6 +144,7 @@ Perhatikan selalu:
 - unsafe upload
 - leaked secrets
 - webhook spoofing
+- pencurian/penyalahgunaan Local Booth Agent credential, command replay, dan booth identity mismatch
 - insecure password handling
 - open redirect pada `callbackUrl`
 
@@ -160,6 +165,7 @@ Agent tidak boleh otomatis menambahkan:
 
 - Redis
 - message queue
+- broker untuk komunikasi Local Booth Agent
 - Docker orchestration (satu instance database lokal untuk development diperbolehkan)
 - microservices
 - Kubernetes
@@ -186,11 +192,11 @@ Sebelum menambahkan dependency:
 
 Sebelum mengerjakan task:
 
-1. Baca `TASKS.md`.
+1. Baca `docs/TASKS.md`.
 2. Identifikasi task aktif.
 3. Cek dependency task.
-4. Baca requirement terkait di `PRD.md`.
-5. Baca desain terkait di `DESIGN.md`.
+4. Baca requirement terkait di `docs/PRD.md`.
+5. Baca desain terkait di `docs/DESIGN.md`.
 6. Baru implementasikan (dan untuk business logic penting, ikuti Learning-First Rule).
 
 Setelah selesai, jelaskan:
@@ -211,6 +217,7 @@ Business logic penting harus memiliki test. Prioritas:
 4. Booking state transitions
 5. Availability
 6. Cancellation dan reschedule
+7. Booth assignment/session transitions, command/event idempotency, agent authorization, dan heartbeat/offline behavior
 
 Jangan mengejar coverage 100%. Prioritaskan behaviour penting. Test concurrency menguji invarian (mis. jumlah booking aktif per slot), bukan urutan eksekusi.
 
@@ -224,9 +231,9 @@ Jangan mengejar coverage 100%. Prioritaskan behaviour penting. Test concurrency 
 
 Jika architecture atau business rule berubah, perbarui dokumen yang relevan:
 
-- PRD berubah → update `PRD.md`.
-- Technical design berubah → update `DESIGN.md`.
-- Task berubah → update `TASKS.md`.
+- PRD berubah → update `docs/PRD.md`.
+- Technical design berubah → update `docs/DESIGN.md`.
+- Task berubah → update `docs/TASKS.md`.
 - Perilaku agent berubah → update `AGENTS.md`.
 
 Pastikan keempat dokumen tetap konsisten. Perubahan dokumen dijelaskan kepada developer.
@@ -280,6 +287,29 @@ bukan:
 Implementation → Explanation.
 
 Jika instruksi ambigu, ajukan satu pertanyaan klarifikasi yang paling penting. Jika tidak ambigu, langsung kerjakan tanpa banyak basa-basi.
+
+## 23. Photobooth Integration Rules
+
+1. Jangan hardcode satu software/provider photobooth sebagai arsitektur inti.
+2. Jangan menganggap LumaBooth atau vendor tertentu wajib digunakan. Provider hanyalah kandidat integrasi.
+3. `MockBoothProvider` wajib untuk P0; real provider adalah P1 setelah integrasi core selesai.
+4. Jangan mengarang API provider. Jika implementasi membutuhkan provider nyata, verifikasi dokumentasi resmi/terbaru terlebih dahulu.
+5. Jangan reverse-engineer proprietary protocol. Gunakan hanya integration mechanism resmi yang terdokumentasi.
+6. Web app/cloud tidak boleh mengakses camera atau printer dan tidak membuat hardware driver. Photobooth software tetap menangani hardware.
+7. Provider-specific code hanya berada di adapter lokal. Core application hanya menggunakan command internal dan normalized events.
+8. Provider contract P0 cukup `startSession()` dan `getStatus()`; `stopSession()` dan `reprint()` optional. Jangan menambah capability lain tanpa requirement nyata.
+9. Agent adalah bridge lokal sederhana: autentikasi device, heartbeat, command delivery, event normalization, dan error reporting. Agent tidak menangani booking, payment, customer auth, atau admin auth.
+10. Jangan membuat platform IoT, microservices cloud, Redis, Kafka, RabbitMQ, atau message broker untuk booth communication tanpa kebutuhan nyata dan persetujuan perubahan scope.
+11. `START_SESSION` idempotent. Pengiriman ulang command yang sama tidak boleh menjalankan sesi kedua.
+12. Duplicate normalized event aman dan transition state bersyarat. Jangan menerapkan provider-specific event langsung ke business state.
+13. Jangan memberikan fake success jika agent/provider offline atau hasil command tidak diketahui. `Command SUCCESS` bukan `Photo Session COMPLETED`.
+14. Hanya booking `CONFIRMED` dan payment `PAID` yang dapat check-in. Booking harus check-in sebelum assignment/session.
+15. Booth OFFLINE, BUSY, atau MAINTENANCE tidak dapat di-assign. Availability diperiksa server dan dikuatkan constraint database.
+16. Booking tidak boleh `COMPLETED` sebelum photo session `COMPLETED`, kecuali manual recovery yang diotorisasi, diverifikasi, dan mencatat alasan/aktor/waktu.
+17. `SESSION_FAILED` tidak membuat booking completed. Retry membuat percobaan photo session baru; jangan hapus failed history.
+18. Agent authentication terpisah dari user authentication. Credential unik per device, dapat dicabut/dirotasi, disimpan hash di cloud, dan tidak pernah dicatat di log.
+19. Jika capability provider tidak tersedia, nyatakan unsupported atau recovery manual yang benar; jangan membuat behavior seolah-olah tersedia.
+20. Untuk perubahan provider abstraction, command, event, heartbeat, idempotency, device auth, race condition, offline behavior, dan state machine, ikuti Learning-First Rule: jelaskan problem, penyebab, opsi, trade-off, dan rekomendasi sebelum implementasi.
 
 <!-- BEGIN:nextjs-agent-rules -->
 
