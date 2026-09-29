@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title">
+  <title id="title">Contoh foto keluarga</title>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#d9e3db"/><stop offset="1" stop-color="#8eaa9e"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="285" cy="245" r="78" fill="#493b40"/><circle cx="515" cy="245" r="78" fill="#584449"/>
+  <circle cx="400" cy="315" r="68" fill="#76565a"/>
+  <path d="M130 600c12-132 67-205 155-205s143 73 155 205m-116 0c10-107 37-165 76-165s66 58 76 165m-7 0c12-132 67-205 155-205s143 73 155 205" fill="#f3eee3"/>
+</svg>

@@ -1,0 +1,132 @@
+import "dotenv/config";
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import { z } from "zod";
+
+const seedEnvSchema = z.object({
+  ADMIN_SEED_EMAIL: z.email(),
+  ADMIN_SEED_PASSWORD: z.string().min(12),
+});
+
+const parsedEnv = seedEnvSchema.safeParse(process.env);
+
+if (!parsedEnv.success || !parsedEnv.data) {
+  throw new Error(
+    "Seed requires a valid ADMIN_SEED_EMAIL and ADMIN_SEED_PASSWORD (minimum 12 characters) in .env.",
+  );
+}
+
+const seedEnv = parsedEnv.data;
+
+const prisma = new PrismaClient();
+
+async function main() {
+  const email = seedEnv.ADMIN_SEED_EMAIL.trim().toLowerCase();
+  const passwordHash = await bcrypt.hash(seedEnv.ADMIN_SEED_PASSWORD, 12);
+
+  await prisma.admin.upsert({
+    where: { email },
+    create: { email, passwordHash, name: "Fotiu Admin" },
+    update: { passwordHash, name: "Fotiu Admin", isActive: true },
+  });
+
+  for (let weekday = 0; weekday <= 6; weekday += 1) {
+    await prisma.operatingHour.upsert({
+      where: { weekday },
+      create: {
+        weekday,
+        isOpen: weekday !== 0,
+        openTime: "09:00",
+        closeTime: "17:00",
+      },
+      update: {},
+    });
+  }
+
+  const packages = [
+    {
+      slug: "portrait-basic",
+      name: "Portrait Basic",
+      description: "Sesi portrait untuk satu orang.",
+      price: 150_000,
+      durationMinutes: 45,
+      bufferMinutes: 15,
+      sortOrder: 1,
+    },
+    {
+      slug: "family-session",
+      name: "Family Session",
+      description: "Sesi foto keluarga dengan waktu lebih panjang.",
+      price: 350_000,
+      durationMinutes: 90,
+      bufferMinutes: 15,
+      sortOrder: 2,
+    },
+    {
+      slug: "graduation-session",
+      name: "Graduation Session",
+      description: "Sesi foto wisuda untuk mengabadikan momen kelulusan.",
+      price: 250_000,
+      durationMinutes: 60,
+      bufferMinutes: 15,
+      sortOrder: 3,
+    },
+  ];
+
+  const seededPackages = new Map<string, string>();
+
+  for (const packageData of packages) {
+    const { slug, ...data } = packageData;
+    const saved = await prisma.package.upsert({
+      where: { slug },
+      create: { slug, ...data },
+      update: data,
+    });
+    seededPackages.set(slug, saved.id);
+  }
+
+  const galleryImages = [
+    {
+      id: "seed-gallery-portrait",
+      imageUrl: "/images/gallery-portrait.svg",
+      storageKey: "seed/gallery-portrait.svg",
+      caption: "Contoh portrait",
+      packageId: seededPackages.get("portrait-basic"),
+      sortOrder: 1,
+    },
+    {
+      id: "seed-gallery-family",
+      imageUrl: "/images/gallery-family.svg",
+      storageKey: "seed/gallery-family.svg",
+      caption: "Contoh sesi keluarga",
+      packageId: seededPackages.get("family-session"),
+      sortOrder: 2,
+    },
+    {
+      id: "seed-gallery-graduation",
+      imageUrl: "/images/gallery-graduation.svg",
+      storageKey: "seed/gallery-graduation.svg",
+      caption: "Contoh sesi wisuda",
+      packageId: seededPackages.get("graduation-session"),
+      sortOrder: 3,
+    },
+  ];
+
+  for (const image of galleryImages) {
+    const { id, ...data } = image;
+    await prisma.galleryImage.upsert({
+      where: { id },
+      create: { id, ...data, isPublished: true },
+      update: { ...data, isPublished: true },
+    });
+  }
+}
+
+main()
+  .catch((error: unknown) => {
+    console.error("Database seed failed.", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });

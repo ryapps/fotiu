@@ -2,13 +2,13 @@
 
 ## 1. Project Context
 
-**Fotiu** adalah aplikasi web booking dan manajemen studio foto (satu studio). Customer login Google, memilih package dan jadwal, membayar QRIS, dan melihat status booking. Admin (email dan password) mengelola package, jadwal, booking, dan customer.
+**Fotiu** adalah aplikasi web booking dan manajemen studio foto (satu studio) yang menghubungkan booking lunas ke workflow photobooth lokal. Customer login Google, memilih package dan jadwal, membayar QRIS, dan melihat status booking. Admin (email dan password) mengelola package, jadwal, booking, customer, check-in, booth assignment, dan photo session. P0 memakai Local Booth Agent dan MockBoothProvider; provider nyata adalah P1.
 
 Core workflow:
 
 Browse Package → Login → Select Schedule → Booking → Payment → Confirmation → Session Management
 
-Stack: Next.js + TypeScript, Tailwind + shadcn/ui, PostgreSQL, Prisma, Auth.js, payment gateway QRIS (default Midtrans sandbox), Vercel. Arsitektur: **modular monolith**.
+Stack: Next.js + TypeScript, Tailwind + shadcn/ui, PostgreSQL, Prisma, Auth.js, payment gateway QRIS (default Midtrans sandbox), Vercel. Arsitektur cloud: **modular monolith**. Local Booth Agent adalah service bridge ringan pada komputer studio, bukan cloud microservice atau platform IoT.
 
 Proyek ini dikerjakan satu developer dan **juga untuk belajar**.
 
@@ -23,7 +23,7 @@ Urutan authority:
 3. `TASKS.md` = implementation roadmap
 4. Existing codebase = current implementation
 
-Jika ada konflik antar dokumen atau antara dokumen dan code, **jangan diam-diam membuat keputusan baru**. Jelaskan konfliknya terlebih dahulu dan minta keputusan developer.
+Jika ada konflik antar dokumen atau antara dokumen dan code, **jangan diam-diam membuat keputusan baru**. Untuk perubahan scope yang developer minta secara eksplisit, identifikasi konflik yang terdampak dan harmonisasikan empat dokumen dengan solusi paling sederhana sesuai permintaan; tanyakan hanya jika konflik penting masih belum terselesaikan oleh arahan tersebut.
 
 ## 3. Development Philosophy
 
@@ -40,7 +40,7 @@ Agent harus:
 
 Karena proyek ini untuk belajar, agent **TIDAK BOLEH** langsung memberikan implementasi besar untuk business logic penting tanpa membantu developer memahami masalahnya.
 
-Bagian yang termasuk: double booking, transaction, authorization, OAuth, webhook, payment, database constraint, race condition.
+Bagian yang termasuk: double booking, transaction, authorization, OAuth, webhook, payment, database constraint, race condition, provider abstraction, command/event handling, heartbeat, device authentication, offline behavior, dan state machine booth/session.
 
 Untuk bagian tersebut, agent harus **terlebih dahulu** menjelaskan:
 
@@ -280,3 +280,13 @@ bukan:
 Implementation → Explanation.
 
 Jika instruksi ambigu, ajukan satu pertanyaan klarifikasi yang paling penting. Jika tidak ambigu, langsung kerjakan tanpa banyak basa-basi.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

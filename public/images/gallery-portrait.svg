@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-labelledby="title">
+  <title id="title">Contoh foto portrait</title>
+  <defs>
+    <linearGradient id="bg" x2="1" y2="1"><stop stop-color="#f4d7d0"/><stop offset="1" stop-color="#b66f73"/></linearGradient>
+  </defs>
+  <rect width="800" height="600" fill="url(#bg)"/>
+  <circle cx="400" cy="225" r="105" fill="#493b40"/>
+  <path d="M205 600c18-160 88-245 195-245s177 85 195 245" fill="#f1e4d7"/>
+</svg>

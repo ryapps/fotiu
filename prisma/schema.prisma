@@ -3,7 +3,194 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+}
+
+enum BookingStatus {
+  WAITING_PAYMENT
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REFUNDED
+}
+
+enum CancelledBy {
+  CUSTOMER
+  ADMIN
+  SYSTEM
+}
+
+enum PaymentEventResult {
+  PROCESSED
+  DUPLICATE
+  IGNORED
+  REJECTED
+}
+
+model User {
+  id        String    @id @default(cuid())
+  googleSub String    @unique
+  email     String    @unique
+  name      String
+  image     String?
+  phone     String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  bookings  Booking[]
+
+  @@map("users")
+}
+
+model Admin {
+  id             String          @id @default(cuid())
+  email          String          @unique
+  passwordHash   String
+  name           String
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
+  scheduleBlocks ScheduleBlock[]
+
+  @@map("admins")
+}
+
+model AdminLoginAttempt {
+  key             String    @id
+  failureCount    Int       @default(0)
+  windowStartedAt DateTime  @db.Timestamptz(3)
+  lockedUntil     DateTime? @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @db.Timestamptz(3)
+
+  @@index([updatedAt])
+  @@map("admin_login_attempts")
+}
+
+model Package {
+  id              String         @id @default(cuid())
+  slug            String         @unique
+  name            String
+  description     String
+  price           Int
+  durationMinutes Int
+  bufferMinutes   Int            @default(0)
+  coverImageUrl   String?
+  isActive        Boolean        @default(true)
+  sortOrder       Int            @default(0)
+  createdAt       DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
+  bookings        Booking[]
+  galleryImages   GalleryImage[]
+
+  @@index([isActive, sortOrder])
+  @@map("packages")
+}
+
+model Booking {
+  id                  String        @id @default(cuid())
+  code                String        @unique
+  userId              String
+  packageId           String
+  packageNameSnapshot String
+  priceSnapshot       Int
+  startAt             DateTime      @db.Timestamptz(3)
+  endAt               DateTime      @db.Timestamptz(3)
+  status              BookingStatus
+  holdExpiresAt       DateTime?     @db.Timestamptz(3)
+  customerNote        String?
+  cancelledAt         DateTime?     @db.Timestamptz(3)
+  cancelledBy         CancelledBy?
+  cancelReason        String?
+  completedAt         DateTime?     @db.Timestamptz(3)
+  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+  package             Package       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  payment             Payment?
+
+  @@index([userId, startAt])
+  @@index([status, startAt])
+  @@index([startAt])
+  @@map("bookings")
+}
+
+model Payment {
+  id                    String         @id @default(cuid())
+  bookingId             String         @unique
+  provider              String
+  providerOrderId       String         @unique
+  providerTransactionId String?
+  amount                Int
+  status                PaymentStatus  @default(UNPAID)
+  qrString              String?
+  qrImageUrl            String?
+  expiresAt             DateTime?      @db.Timestamptz(3)
+  paidAt                DateTime?      @db.Timestamptz(3)
+  needsReview           Boolean        @default(false)
+  createdAt             DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime       @updatedAt @db.Timestamptz(3)
+  booking               Booking        @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  events                PaymentEvent[]
+
+  @@index([status])
+  @@map("payments")
+}
+
+model PaymentEvent {
+  id             String             @id @default(cuid())
+  paymentId      String?
+  provider       String
+  eventKey       String             @unique
+  rawPayload     Json
+  signatureValid Boolean
+  result         PaymentEventResult
+  receivedAt     DateTime           @default(now()) @db.Timestamptz(3)
+  payment        Payment?           @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@map("payment_events")
+}
+
+model OperatingHour {
+  id        String  @id @default(cuid())
+  weekday   Int     @unique
+  isOpen    Boolean @default(true)
+  openTime  String  @db.VarChar(5)
+  closeTime String  @db.VarChar(5)
+
+  @@map("operating_hours")
+}
+
+model ScheduleBlock {
+  id               String   @id @default(cuid())
+  startAt          DateTime @db.Timestamptz(3)
+  endAt            DateTime @db.Timestamptz(3)
+  reason           String
+  createdByAdminId String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  createdByAdmin   Admin?   @relation(fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
+  @@index([startAt, endAt])
+  @@map("schedule_blocks")
+}
+
+model GalleryImage {
+  id          String   @id @default(cuid())
+  imageUrl    String
+  storageKey  String
+  caption     String?
+  packageId   String?
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  package     Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@map("gallery_images")
 }
