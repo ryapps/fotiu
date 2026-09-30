@@ -1,8 +1,10 @@
 import "dotenv/config";
 
 import { createHash, randomUUID } from "node:crypto";
-import { prisma } from "../src/lib/prisma";
+import { PrismaClient } from "@prisma/client";
 import { env } from "../src/lib/env";
+
+const prisma = new PrismaClient();
 
 async function main() {
   const orderId = process.argv[2];
@@ -22,7 +24,7 @@ async function main() {
   }
   if (!env.MIDTRANS_SERVER_KEY) {
     throw new Error(
-      "Set MIDTRANS_SERVER_KEY in .env before simulating a webhook.",
+      "Set MIDTRANS_SERVER_KEY in .env before simula  ting a webhook.",
     );
   }
   if (!orderId || orderId.length > 64) {

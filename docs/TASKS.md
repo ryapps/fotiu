@@ -439,7 +439,7 @@ Idempotent batch job, conditional update, lazy vs scheduled cleanup, keterbatasa
 
 ## Phase 6 — Payment
 
-- [ ] Akun dan konfigurasi sandbox payment provider
+- [x] Akun dan konfigurasi sandbox payment provider (Server Key diterima API status Midtrans sandbox)
 - [x] `payment/provider.ts` (`createQris`, `verifyWebhook`, `mapStatus`)
 - [x] `createPayment` untuk membuat atau mengulang QRIS (FR-030)
 - [x] Tampilan QR, countdown, dan status di booking detail (FR-031)
@@ -532,8 +532,11 @@ Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), s
 - [x] Log webhook tersedia melalui `payment_events` dan tidak menyimpan Server Key.
 
 Catatan progres: implementasi provider dan simulasi webhook lokal tersedia; unit
-dan integration test lulus. Alur QRIS sandbox nyata masih menunggu akun serta
-`MIDTRANS_SERVER_KEY` sandbox di `.env`.
+dan integration test lulus. Server Key sandbox sudah diverifikasi melalui API
+status Midtrans. Smoke test sandbox membuat QRIS lewat service aplikasi dan
+memastikan payment `PENDING`, URL QR, serta expiry tersimpan sesuai hold; fixture
+lokal dibersihkan dan QR tidak dibayar. Alur QR terlihat di browser dan settlement
+sandbox menuju `CONFIRMED` masih perlu diverifikasi.
 
 ---
 
@@ -648,11 +651,11 @@ P1 setelah P0 selesai; jangan menandai P0 belum selesai karena provider nyata be
 
 ## Phase 7 — Customer Dashboard
 
-- [ ] `/dashboard` dengan upcoming booking (FR-012)
-- [ ] `/dashboard/bookings` dengan tab upcoming dan history (FR-013)
-- [ ] `/dashboard/bookings/[id]` (FR-014), termasuk payment
-- [ ] Badge status booking dan payment
-- [ ] `cancelMyBooking` (FR-026)
+- [x] `/dashboard` dengan upcoming booking dan CTA booking baru (FR-012)
+- [x] `/dashboard/bookings` dengan tab upcoming dan history (FR-013)
+- [x] `/dashboard/bookings/[id]` (FR-014), termasuk payment
+- [x] Badge status booking dan payment
+- [x] `cancelMyBooking` (FR-026)
 
 ### TASK-7.1 — Customer Cancellation
 
@@ -681,10 +684,10 @@ TASK-5.1, TASK-6.2, TASK-2.3.
 
 **Acceptance Criteria**
 
-- [ ] Cancel WAITING_PAYMENT berhasil dan slot tersedia lagi.
-- [ ] Cancel CONFIRMED di luar deadline ditolak dengan pesan jelas.
-- [ ] Booking orang lain menghasilkan 404.
-- [ ] Cancel ulang atau cancel setelah COMPLETED ditolak.
+- [x] Cancel WAITING_PAYMENT berhasil dan slot tersedia lagi.
+- [x] Cancel CONFIRMED tepat pada deadline berhasil; satu milidetik melewati batas ditolak dengan pesan jelas.
+- [x] Booking orang lain menghasilkan NOT_FOUND tanpa mengubah data.
+- [x] Cancel ulang atau cancel setelah COMPLETED ditolak.
 
 **Learning Focus**
 
@@ -692,8 +695,16 @@ State machine transitions, conditional update untuk mencegah race, IDOR, aturan 
 
 **Definition of Done (Phase 7)**
 
-- [ ] Customer melihat dan mengelola booking miliknya saja.
-- [ ] Cancel sesuai aturan dan teruji.
+- [x] Customer melihat dan mengelola booking miliknya saja.
+- [x] Cancel sesuai aturan dan teruji, termasuk race dengan webhook settlement.
+
+Catatan progres: dashboard menampilkan booking mendatang, daftar booking memiliki
+tab mendatang/riwayat, dan detail menampilkan badge serta aksi pembatalan. Cancel
+mengunci booking lalu payment, melakukan transisi bersyarat, dan menandai payment
+hold EXPIRED di transaction yang sama; pembatalan QRIS Midtrans dicoba setelah
+commit. Jika pembuatan QR masih berjalan saat cancel, service payment mencoba
+membatalkan QR setelah respons provider kembali. Payment PAID tetap PAID agar
+kebutuhan refund manual dapat diturunkan dari booking CANCELLED + payment PAID.
 
 ---
 

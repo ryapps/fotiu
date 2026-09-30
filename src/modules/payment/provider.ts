@@ -32,6 +32,21 @@ const statusResponseSchema = z
   })
   .passthrough();
 
+const statusNotFoundSchema = z
+  .object({
+    status_code: z.union([z.string(), z.number()]).transform(String),
+    status_message: z.string(),
+  })
+  .passthrough();
+
+const cancelResponseSchema = z
+  .object({
+    order_id: z.string(),
+    status_code: z.union([z.string(), z.number()]).transform(String),
+    transaction_status: z.string(),
+  })
+  .passthrough();
+
 export type QrisResult = {
   orderId: string;
   transactionId: string;
@@ -89,6 +104,17 @@ async function requestMidtrans(
   if (response.status === 404) throw new MidtransNotFoundError();
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new PaymentProviderError();
+  if (path.endsWith("/status")) {
+    const statusError = statusNotFoundSchema.safeParse(body);
+    if (
+      statusError.success &&
+      statusError.data.status_code === "404" &&
+      statusError.data.status_message.toLowerCase() ===
+        "transaction doesn't exist."
+    ) {
+      throw new MidtransNotFoundError();
+    }
+  }
   return body;
 }
 
@@ -266,6 +292,23 @@ export async function createQris(input: {
   }
 
   return parseQrisResponse(body, input.orderId, input.amount);
+}
+
+export async function cancelQris(orderId: string, serverKey: string) {
+  const body = await requestMidtrans(
+    `/v2/${encodeURIComponent(orderId)}/cancel`,
+    { method: "POST" },
+    serverKey,
+  );
+  const parsed = cancelResponseSchema.safeParse(body);
+  if (
+    !parsed.success ||
+    parsed.data.order_id !== orderId ||
+    parsed.data.status_code !== "200" ||
+    parsed.data.transaction_status !== "cancel"
+  ) {
+    throw new PaymentProviderError("Midtrans did not cancel the QRIS payment.");
+  }
 }
 
 export function verifyWebhookSignature(input: {

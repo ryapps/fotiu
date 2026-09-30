@@ -5,6 +5,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/env", () => ({ env: { MIDTRANS_ENVIRONMENT: "sandbox" } }));
 
 import {
+  cancelQris,
   createQris,
   isGrossAmountEqual,
   mapStatus,
@@ -46,6 +47,28 @@ describe("Midtrans provider helpers", () => {
     expect(isGrossAmountEqual("1e5", 100_000)).toBe(false);
   });
 
+  it("cancels a pending QRIS transaction by its stable order id", async () => {
+    const requests: Array<{ url: string; init?: RequestInit }> = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+        requests.push({ url: String(input), init });
+        return Response.json({
+          order_id: "FT-20260930-cancel-test",
+          status_code: "200",
+          transaction_status: "cancel",
+        });
+      }),
+    );
+
+    await cancelQris("FT-20260930-cancel-test", "test-server-key");
+
+    expect(requests[0]?.url).toBe(
+      "https://api.sandbox.midtrans.com/v2/FT-20260930-cancel-test/cancel",
+    );
+    expect(requests[0]?.init?.method).toBe("POST");
+  });
+
   it("creates QRIS using booking code, server amount, and the configured expiry", async () => {
     const requests: Array<{ url: string; init?: RequestInit }> = [];
     vi.stubGlobal(
@@ -53,7 +76,11 @@ describe("Midtrans provider helpers", () => {
       vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
         const url = String(input);
         requests.push({ url, init });
-        if (url.endsWith("/status")) return new Response("{}", { status: 404 });
+        if (url.endsWith("/status"))
+          return Response.json({
+            status_code: "404",
+            status_message: "Transaction doesn't exist.",
+          });
         return Response.json({
           order_id: "FT-20260930-0123456789AB",
           transaction_id: "txn-test",
@@ -106,7 +133,11 @@ describe("Midtrans provider helpers", () => {
         calls += 1;
         const url = String(input);
         if (url.endsWith("/status")) {
-          if (calls === 1) return new Response("{}", { status: 404 });
+          if (calls === 1)
+            return Response.json({
+              status_code: "404",
+              status_message: "Transaction doesn't exist.",
+            });
           return Response.json({
             order_id: "FT-20260930-timeout",
             transaction_id: "txn-recovered",

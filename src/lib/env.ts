@@ -14,6 +14,7 @@ const envSchema = z
     MAX_ADVANCE_DAYS: z.coerce.number().int().positive().default(60),
     BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
     MAX_ACTIVE_HOLDS_PER_USER: z.coerce.number().int().positive().default(2),
+    CUSTOMER_CANCEL_DEADLINE_HOURS: z.coerce.number().int().min(0).default(24),
     CRON_SECRET: z.string().min(32).optional(),
     MIDTRANS_SERVER_KEY: z.string().min(1).optional(),
     MIDTRANS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),

@@ -6,13 +6,19 @@ vi.mock("@/lib/env", () => ({
   env: { MIDTRANS_SERVER_KEY: "integration-test-key" },
 }));
 vi.mock("@/modules/payment/provider", () => ({
+  cancelQris: vi.fn().mockResolvedValue(undefined),
   createQris: vi.fn(),
   PaymentProviderError: class PaymentProviderError extends Error {},
 }));
 
 import { prisma } from "@/lib/prisma";
+import { cancelMyBooking } from "@/modules/booking/cancel-booking";
 import { createPaymentForCustomer } from "@/modules/payment/create-payment";
-import { createQris, PaymentProviderError } from "@/modules/payment/provider";
+import {
+  cancelQris,
+  createQris,
+  PaymentProviderError,
+} from "@/modules/payment/provider";
 import {
   addCalendarDays,
   getLocalDate,
@@ -116,5 +122,67 @@ describe("create payment retries against PostgreSQL", () => {
     expect(payment.providerTransactionId).toBe("retry-transaction");
     expect(payment.qrImageUrl).toContain("retry-transaction");
     expect(await prisma.payment.count({ where: { bookingId } })).toBe(1);
+  });
+
+  it("cancels a QR created while the booking is being cancelled", async () => {
+    await prisma.$transaction([
+      prisma.booking.update({
+        where: { id: bookingId },
+        data: {
+          status: "WAITING_PAYMENT",
+          holdExpiresAt: new Date(Date.now() + 15 * 60_000),
+        },
+      }),
+      prisma.payment.update({
+        where: { bookingId },
+        data: {
+          status: "UNPAID",
+          qrImageUrl: null,
+          providerTransactionId: null,
+        },
+      }),
+    ]);
+    let resolveCharge!: (value: Awaited<ReturnType<typeof createQris>>) => void;
+    const charge = new Promise<Awaited<ReturnType<typeof createQris>>>(
+      (resolve) => {
+        resolveCharge = resolve;
+      },
+    );
+    vi.mocked(createQris).mockReturnValueOnce(charge);
+
+    const paymentRequest = createPaymentForCustomer(userId, bookingId);
+    await vi.waitFor(() => expect(createQris).toHaveBeenCalled());
+    const booking = await prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      select: { code: true },
+    });
+    const cancellation = await cancelMyBooking(userId, bookingId);
+    expect(cancellation.ok).toBe(true);
+
+    resolveCharge({
+      orderId: booking.code,
+      transactionId: "cancel-race-transaction",
+      transactionStatus: "pending",
+      grossAmount: "75000.00",
+      qrImageUrl:
+        "https://api.sandbox.midtrans.com/v4/qris/cancel-race-transaction/qr-code",
+    });
+
+    await expect(paymentRequest).resolves.toEqual({
+      ok: false,
+      code: "EXPIRED",
+    });
+    expect(cancelQris).toHaveBeenCalledWith(
+      booking.code,
+      "integration-test-key",
+    );
+    const persisted = await prisma.booking.findUniqueOrThrow({
+      where: { id: bookingId },
+      select: { status: true, payment: { select: { status: true } } },
+    });
+    expect(persisted).toEqual({
+      status: "CANCELLED",
+      payment: { status: "EXPIRED" },
+    });
   });
 });

@@ -16,3 +16,8 @@ export const bookingActionFormSchema = createBookingInputSchema.extend({
 });
 
 export const bookingIdSchema = z.string().trim().min(1).max(64);
+
+export const cancelMyBookingInputSchema = z.object({
+  bookingId: bookingIdSchema,
+  reason: z.string().trim().max(1000).optional(),
+});

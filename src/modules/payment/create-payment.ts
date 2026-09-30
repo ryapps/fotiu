@@ -4,7 +4,11 @@ import type { Prisma } from "@prisma/client";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { expireStaleHolds } from "@/modules/booking/expiry";
-import { createQris, PaymentProviderError } from "@/modules/payment/provider";
+import {
+  cancelQris,
+  createQris,
+  PaymentProviderError,
+} from "@/modules/payment/provider";
 
 type PaymentResult = {
   id: string;
@@ -132,7 +136,7 @@ export async function createPaymentForCustomer(
     throw error;
   }
 
-  return prisma.$transaction(
+  const outcome = await prisma.$transaction(
     async (tx) => {
       await lockBookingThenPayment(tx, bookingId);
       await expireStaleHolds(tx, new Date(), { bookingId });
@@ -152,6 +156,9 @@ export async function createPaymentForCustomer(
         },
       });
       if (!current) return { ok: false as const, code: "NOT_FOUND" as const };
+      if (current.payment?.status === "PAID") {
+        return { ok: true as const, payment: current.payment };
+      }
       if (
         current.status !== "WAITING_PAYMENT" ||
         !current.holdExpiresAt ||
@@ -161,9 +168,6 @@ export async function createPaymentForCustomer(
       }
       if (!current.payment)
         return { ok: false as const, code: "INVALID_STATE" as const };
-      if (current.payment.status === "PAID") {
-        return { ok: true as const, payment: current.payment };
-      }
       if (!["UNPAID", "PENDING"].includes(current.payment.status)) {
         return { ok: false as const, code: "INVALID_STATE" as const };
       }
@@ -185,4 +189,14 @@ export async function createPaymentForCustomer(
     },
     { maxWait: 15_000, timeout: 15_000 },
   );
+
+  if (!outcome.ok && outcome.code === "EXPIRED") {
+    try {
+      await cancelQris(booking.code, serverKey);
+    } catch {
+      // Cancellation is best-effort; late settlement is handled by the webhook.
+    }
+  }
+
+  return outcome;
 }

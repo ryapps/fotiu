@@ -67,6 +67,25 @@ describe("calculateAvailability", () => {
     ]);
   });
 
+  it("reopens a slot after its booking is cancelled", () => {
+    const slots = calculate({
+      bookings: [
+        {
+          startAt: new Date("2026-01-01T02:00:00.000Z"),
+          endAt: new Date("2026-01-01T03:00:00.000Z"),
+          status: "CANCELLED",
+          holdExpiresAt: null,
+        },
+      ],
+    });
+
+    expect(slots.map(({ startAt }) => startAt.toISOString())).toEqual([
+      "2026-01-01T02:00:00.000Z",
+      "2026-01-01T03:00:00.000Z",
+      "2026-01-01T04:00:00.000Z",
+    ]);
+  });
+
   it("ignores expired holds and keeps future holds active", () => {
     const slots = calculate({
       bookings: [
