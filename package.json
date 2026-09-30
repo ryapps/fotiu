@@ -11,6 +11,7 @@
     "test": "vitest run --exclude **/*.integration.test.ts",
     "test:integration": "tsx scripts/test-integration.ts",
     "payment:simulate": "tsx scripts/simulate-payment-webhook.ts",
+    "booth:agent": "tsx scripts/booth-agent.ts",
     "test:watch": "vitest",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

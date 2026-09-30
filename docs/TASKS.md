@@ -582,17 +582,24 @@ Catatan progres PB-2: provider contract, status normalizer, dan mock provider te
 
 **Dependency:** PB-2.
 
-- [ ] Buat agent kecil yang berjalan pada komputer studio dan dikonfigurasi dengan cloud URL, device identity, token, provider key.
-- [ ] Provision, rotate, dan revoke device credential; cloud menyimpan hash, agent menyimpan secret lokal.
-- [ ] Implementasikan polling HTTPS dan heartbeat dengan interval/timeout yang dapat dikonfigurasi.
-- [ ] Agent hanya dapat membaca command untuk booth credential-nya.
-- [ ] Klaim dan jalankan command melalui Provider Adapter; kirim hasil command, normalized event, dan error.
-- [ ] Validasi payload serta booth/session/command ownership di cloud endpoints.
-- [ ] Jangan menganggap command terkirim/SUCCESS sebagai session completion.
+- [x] Buat agent kecil yang berjalan pada komputer studio dan dikonfigurasi dengan cloud URL, device identity, token, provider key.
+- [x] Provision, rotate, dan revoke device credential; cloud menyimpan hash, agent menyimpan secret lokal.
+- [x] Implementasikan polling HTTPS dan heartbeat dengan interval/timeout yang dapat dikonfigurasi.
+- [x] Agent hanya dapat membaca command untuk booth credential-nya.
+- [x] Klaim dan jalankan command melalui Provider Adapter; kirim hasil command, normalized event, dan error.
+- [x] Validasi payload serta booth/session/command ownership di cloud endpoints.
+- [x] Jangan menganggap command terkirim/SUCCESS sebagai session completion.
 
 **Definition of Done:** satu agent tersambung melalui outbound HTTPS, heartbeat memperbarui status booth, dan dapat menjalankan command mock. Tidak diperlukan port inbound, broker, atau service cloud tambahan.
 
 **Learning Focus:** cloud vs local network, machine authentication, polling, heartbeat, retry, failure boundaries.
+
+Catatan progres PB-3: runner `npm run booth:agent`, heartbeat/poll/result/event endpoints,
+autentikasi device berbasis token hash, provisioning/rotasi/pencabutan token, dan
+halaman `/admin/booths` sudah tersedia. Token mentah hanya ditampilkan saat dibuat
+atau dirotasi. Penerapan migration dan uji koneksi end-to-end masih tertunda;
+perintah START_SESSION baru dapat dibuat saat PB-5 tersedia. Rate limit agent
+saat ini per proses aplikasi, sebagai perlindungan tambahan dan bukan batas global.
 
 ### PB-4 — Studio Check-in dan Booth Assignment
 

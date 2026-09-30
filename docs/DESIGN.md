@@ -812,6 +812,8 @@ Cloud menangani booking, authorization admin, check-in, assignment, command, dan
 - Memvalidasi respons cloud, mengirim heartbeat, mengambil command booth-nya sendiri, meneruskan command ke adapter lokal, menerima callback/status dari provider, lalu mengirim normalized event dan error ke cloud.
 - Tidak menangani booking/payment rules atau autentikasi customer/admin. Tidak mengubah status bisnis tanpa validasi cloud.
 - P0 boleh berupa proses Node sederhana yang dijalankan manual sebagai service lokal. Auto-updater, OS management, dan orkestrasi agent di luar scope.
+- Implementasi P0 dijalankan dengan `npm run booth:agent`; base URL, device identity/token, provider key, mode simulasi, polling, dan timeout divalidasi sebelum loop berjalan.
+- Agent mengirim heartbeat tanpa `boothId`; cloud menentukan identitas dari bearer token. Poll command mengembalikan paling banyak satu command baru serta daftar sesi aktif untuk melanjutkan pemantauan setelah agent restart.
 
 ### Provider Abstraction
 
@@ -904,6 +906,7 @@ Booth presence diproyeksikan dari maintenance, heartbeat, dan active session: fr
 - Simpan hash token di cloud, raw token hanya ditampilkan saat provision/rotation dan disimpan lokal oleh agent. Credential dapat dicabut/dirotasi dengan mengganti hash.
 - Agent mengirim bearer credential hanya melalui TLS. Server memetakan credential ke booth; request tidak boleh menentukan `boothId` yang berbeda dari identitas token.
 - Semua endpoint agent memvalidasi Zod, ownership booth/session/command, ukuran payload, dan rate limit. Jangan pernah log token. Gunakan constant-time comparison untuk hash/secret check bila sesuai.
+- Rate limit P0 saat ini memakai in-memory window per proses aplikasi. Ini perlindungan tambahan pada deployment satu instance; deployment multi-instance memerlukan limiter terdistribusi sebelum mengandalkan batas global.
 
 ### Failure Handling
 

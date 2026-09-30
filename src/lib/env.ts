@@ -18,6 +18,12 @@ const envSchema = z
     CRON_SECRET: z.string().min(32).optional(),
     MIDTRANS_SERVER_KEY: z.string().min(1).optional(),
     MIDTRANS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+    BOOTH_HEARTBEAT_TIMEOUT_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(10)
+      .max(3600)
+      .default(45),
   })
   .superRefine((value, context) => {
     if (Boolean(value.AUTH_GOOGLE_ID) !== Boolean(value.AUTH_GOOGLE_SECRET)) {

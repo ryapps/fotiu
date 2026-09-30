@@ -21,6 +21,12 @@ export default async function AdminDashboardPage() {
       >
         Kelola jadwal
       </Link>
+      <Link
+        className="ml-3 inline-flex h-10 items-center rounded-md border px-4 text-sm font-medium hover:bg-secondary"
+        href="/admin/booths"
+      >
+        Photobooth
+      </Link>
       <div className="mt-6 flex flex-wrap gap-3">
         <Link
           className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary"
