@@ -113,6 +113,7 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
       </article>
       <AvailabilityPicker
         packageId={photoPackage.id}
+        packageSlug={slug}
         timeZone={env.STUDIO_TIMEZONE}
         initialDate={today}
         maxDate={addCalendarDays(today, env.MAX_ADVANCE_DAYS)}

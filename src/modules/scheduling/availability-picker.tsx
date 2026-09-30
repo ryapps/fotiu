@@ -11,6 +11,7 @@ type AvailabilityResponse = {
 
 type AvailabilityPickerProps = {
   packageId: string;
+  packageSlug: string;
   timeZone: string;
   initialDate: string;
   maxDate: string;
@@ -27,6 +28,7 @@ function formatTime(value: string, timeZone: string) {
 
 export function AvailabilityPicker({
   packageId,
+  packageSlug,
   timeZone,
   initialDate,
   maxDate,
@@ -142,10 +144,17 @@ export function AvailabilityPicker({
             })}
           </ul>
           {selectedStartAt && (
-            <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Waktu dipilih. Pemesanan akan tersedia setelah alur booking
-              diaktifkan.
-            </p>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md bg-secondary/60 p-4">
+              <p className="text-sm" role="status">
+                Waktu dipilih: {formatTime(selectedStartAt, timeZone)}
+              </p>
+              <a
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                href={`/packages/${packageSlug}/book?startAt=${encodeURIComponent(selectedStartAt)}`}
+              >
+                Lanjutkan booking
+              </a>
+            </div>
           )}
         </>
       )}

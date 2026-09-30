@@ -2,10 +2,16 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-export async function requireCustomer() {
+export async function requireCustomer(callbackUrl?: string) {
   const session = await auth();
 
-  if (!session?.user.id) redirect("/login");
+  if (!session?.user.id) {
+    redirect(
+      callbackUrl
+        ? `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`
+        : "/login",
+    );
+  }
   if (session.user.role !== "CUSTOMER") redirect("/admin");
 
   return { userId: session.user.id };

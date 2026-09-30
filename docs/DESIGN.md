@@ -413,9 +413,11 @@ Error pelanggaran constraint (SQLSTATE `23P01`) ditangkap dan diterjemahkan menj
 
 Urutan dalam transaction pembuatan booking:
 
-1. **Sweep expired holds:** `UPDATE bookings SET status='EXPIRED' WHERE status='WAITING_PAYMENT' AND holdExpiresAt < now()` (dan payment terkait menjadi EXPIRED). Ini penting karena constraint masih menghitung booking WAITING_PAYMENT yang sudah lewat waktu tetapi belum ditandai EXPIRED.
-2. Hitung jumlah WAITING_PAYMENT aktif milik customer (batas 2).
-3. Insert booking dan payment. Jika bentrok, constraint melempar error yang ditangkap sebagai Conflict.
+1. Lock row customer agar dua request customer yang sama tidak dapat melewati pemeriksaan batas hold secara bersamaan.
+2. **Sweep expired holds:** `UPDATE bookings SET status='EXPIRED' WHERE status='WAITING_PAYMENT' AND holdExpiresAt <= now()` (dan payment terkait menjadi EXPIRED). Batas sama dengan `now` dianggap expired agar konsisten dengan availability yang hanya menghitung hold dengan `holdExpiresAt > now`. Ini penting karena constraint masih menghitung booking WAITING_PAYMENT yang sudah lewat waktu tetapi belum ditandai EXPIRED.
+3. Hitung jumlah WAITING_PAYMENT aktif milik customer (batas 2).
+4. Validasi package aktif dan hitung ulang slot di server. `endAt`, snapshot package/harga, dan expiry berasal dari konfigurasi/database server.
+5. Insert booking dan payment. Jika bentrok, exclusion constraint melempar error yang ditangkap sebagai Conflict.
 
 ### Why
 

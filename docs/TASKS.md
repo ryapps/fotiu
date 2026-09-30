@@ -347,14 +347,14 @@ Batas antara aturan yang dijaga database dan aturan yang dijaga aplikasi.
 
 ## Phase 5 — Booking
 
-- [ ] Halaman `/packages/[slug]/book` (wajib login, FR-020)
-- [ ] `createBooking` (FR-022, FR-027)
-- [ ] Kode booking yang mudah dibaca (`code`)
-- [ ] Batas hold per customer (FR-024)
-- [ ] Lazy expiry di transaction booking dan filter availability (FR-025)
-- [ ] Endpoint cron sweep (`/api/cron/expire-bookings`)
-- [ ] State machine booking (fungsi transisi terpusat)
-- [ ] Penanganan error konflik pada UI
+- [x] Halaman `/packages/[slug]/book` (wajib login, FR-020)
+- [x] `createBooking` (FR-022, FR-027)
+- [x] Kode booking yang mudah dibaca (`code`)
+- [x] Batas hold per customer (FR-024)
+- [x] Lazy expiry di transaction booking dan filter availability (FR-025)
+- [x] Endpoint cron sweep (`/api/cron/expire-bookings`)
+- [x] State machine booking (fungsi transisi terpusat)
+- [x] Penanganan error konflik pada UI
 
 ### TASK-5.1 — Create Booking dengan Slot Hold dan Anti Double Booking
 
@@ -386,10 +386,10 @@ TASK-1.1, TASK-2.3, TASK-4.1.
 
 **Acceptance Criteria**
 
-- [ ] Booking berhasil menghasilkan status WAITING_PAYMENT dengan `holdExpiresAt` benar.
-- [ ] Test race: dua `createBooking` paralel, tepat satu sukses dan satu `CONFLICT`.
-- [ ] Booking expired yang belum di-sweep tidak menghalangi booking baru.
-- [ ] Batas hold ditegakkan dan `userId`/`endAt`/harga dari client diabaikan.
+- [x] Booking berhasil menghasilkan status WAITING_PAYMENT dengan `holdExpiresAt` benar.
+- [x] Test race: dua `createBooking` paralel, tepat satu sukses dan satu `CONFLICT`.
+- [x] Booking expired yang belum di-sweep tidak menghalangi booking baru.
+- [x] Batas hold ditegakkan dan `userId`/`endAt`/harga dari client diabaikan.
 
 **Learning Focus**
 
@@ -408,7 +408,7 @@ TASK-5.1.
 **Requirements**
 
 - Fungsi `expireStaleHolds(tx)` dipakai di transaction booking, cron, dan pembacaan detail.
-- Update bersyarat `WHERE status = 'WAITING_PAYMENT' AND holdExpiresAt < now()`.
+- Update bersyarat `WHERE status = 'WAITING_PAYMENT' AND holdExpiresAt <= now()`; batas sama dengan `now` termasuk expired sesuai aturan availability.
 - Payment terkait `UNPAID/PENDING` menjadi `EXPIRED`.
 - Endpoint cron dilindungi `CRON_SECRET`.
 
@@ -420,10 +420,10 @@ TASK-5.1.
 
 **Acceptance Criteria**
 
-- [ ] Setelah hold lewat, slot muncul lagi di availability dan bisa dibooking.
-- [ ] Menjalankan sweep dua kali tidak menimbulkan efek ganda.
-- [ ] Endpoint cron menolak request tanpa secret.
-- [ ] Test untuk balapan expiry vs konfirmasi (yang commit lebih dulu menang).
+- [x] Setelah hold lewat, slot muncul lagi di availability dan bisa dibooking.
+- [x] Menjalankan sweep dua kali tidak menimbulkan efek ganda.
+- [x] Endpoint cron menolak request tanpa secret.
+- [x] Test untuk balapan expiry vs konfirmasi (yang commit lebih dulu menang).
 
 **Learning Focus**
 
@@ -431,9 +431,9 @@ Idempotent batch job, conditional update, lazy vs scheduled cleanup, keterbatasa
 
 **Definition of Done (Phase 5)**
 
-- [ ] Customer dapat membuat booking end-to-end sampai WAITING_PAYMENT.
-- [ ] Double booking terbukti mustahil lewat test.
-- [ ] Expired booking melepaskan slot.
+- [x] Customer dapat membuat booking end-to-end sampai WAITING_PAYMENT.
+- [x] Double booking terbukti mustahil lewat test.
+- [x] Expired booking melepaskan slot.
 
 ---
 

@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { calculateAvailability } from "@/modules/scheduling/availability";
@@ -12,14 +13,23 @@ export async function getPackageAvailability(
   date: string,
   now = new Date(),
 ) {
-  const photoPackage = await prisma.package.findFirst({
+  return getPackageAvailabilityWithClient(prisma, packageId, date, now);
+}
+
+export async function getPackageAvailabilityWithClient(
+  client: Prisma.TransactionClient,
+  packageId: string,
+  date: string,
+  now = new Date(),
+) {
+  const photoPackage = await client.package.findFirst({
     where: { id: packageId, isActive: true },
     select: { durationMinutes: true, bufferMinutes: true },
   });
   if (!photoPackage) return null;
 
   const weekday = weekdayForLocalDate(date);
-  const operatingHour = await prisma.operatingHour.findUnique({
+  const operatingHour = await client.operatingHour.findUnique({
     where: { weekday },
   });
   if (!operatingHour || !operatingHour.isOpen) {
@@ -32,11 +42,11 @@ export async function getPackageAvailability(
 
   const bounds = localDayBoundsUtc(date, env.STUDIO_TIMEZONE);
   const [blocks, bookings] = await Promise.all([
-    prisma.scheduleBlock.findMany({
+    client.scheduleBlock.findMany({
       where: { startAt: { lt: bounds.end }, endAt: { gt: bounds.start } },
       select: { startAt: true, endAt: true },
     }),
-    prisma.booking.findMany({
+    client.booking.findMany({
       where: {
         startAt: { lt: bounds.end },
         endAt: { gt: bounds.start },

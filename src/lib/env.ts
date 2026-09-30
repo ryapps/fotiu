@@ -12,6 +12,9 @@ const envSchema = z
     SLOT_INTERVAL_MINUTES: z.coerce.number().int().positive().default(30),
     MIN_LEAD_HOURS: z.coerce.number().int().min(0).default(2),
     MAX_ADVANCE_DAYS: z.coerce.number().int().positive().default(60),
+    BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
+    MAX_ACTIVE_HOLDS_PER_USER: z.coerce.number().int().positive().default(2),
+    CRON_SECRET: z.string().min(32).optional(),
   })
   .superRefine((value, context) => {
     if (Boolean(value.AUTH_GOOGLE_ID) !== Boolean(value.AUTH_GOOGLE_SECRET)) {
