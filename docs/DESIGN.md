@@ -455,6 +455,8 @@ Urutan dalam transaction pembuatan booking:
 
 **Provider default:** Midtrans (Core API, QRIS, sandbox tersedia). Xendit adalah alternatif yang setara. Detail endpoint, format payload, dan algoritma signature **wajib diverifikasi ke dokumentasi provider terbaru** saat implementasi. Integrasi dibungkus di `payment/provider.ts` dengan fungsi kecil (`createQris`, `verifyWebhook`, `mapStatus`). Ini bukan abstraksi multi-provider, hanya satu file agar detail provider terisolasi.
 
+Implementasi Core API menggunakan `POST /v2/charge`, `payment_type: "qris"`, dan Basic Auth dengan Server Key. `custom_expiry.order_time` bersama `expiry_duration` dalam menit menjaga QRIS berakhir di batas hold. Gunakan kode booking yang sama sebagai `order_id`; sebelum membuat charge dan setelah timeout, cek `GET /v2/{order_id}/status` untuk memulihkan transaksi pending tanpa charge duplikat. QR image URL diambil dari action `generate-qr-code-v2`/`generate-qr-code` yang host dan path-nya dibatasi ke endpoint QRIS Midtrans.
+
 ```mermaid
 sequenceDiagram
     participant C as Customer
@@ -491,7 +493,7 @@ Endpoint: `POST /api/webhooks/payment`. Tidak memakai session. Otentikasi hanya 
 1. Baca raw payload. Verifikasi **signature** sesuai spesifikasi provider (contoh Midtrans: hash SHA-512 dari `order_id + status_code + gross_amount + serverKey`) dengan perbandingan _constant-time_. Jika gagal, simpan event `REJECTED` dan balas 401 tanpa mengubah data.
 2. Cari payment berdasarkan `providerOrderId`. Jika tidak dikenal, catat `IGNORED` dan balas 200 (menghindari retry tak berguna).
 3. Validasi `amount` sama dengan `payment.amount`. Jika berbeda, catat sebagai anomali dan jangan proses.
-4. Mulai transaction dan kunci baris payment (`SELECT ... FOR UPDATE`).
+4. Mulai transaction dan kunci baris booking lalu payment (`SELECT ... FOR UPDATE`), dengan urutan yang sama seperti expiry agar tidak membentuk deadlock.
 5. **Idempotency:** insert ke `payment_events` dengan `eventKey` unik (misal `orderId:transactionStatus:transactionId`). Jika unique violation, event duplikat, balas 200 tanpa efek.
 6. Jika payment sudah `PAID`, event tidak mengubah apa pun (payment already processed), balas 200.
 7. Terapkan mapping status:

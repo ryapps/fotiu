@@ -1,12 +1,18 @@
 import Link from "next/link";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { requireCustomer } from "@/modules/auth/guards";
 import { expireStaleHolds } from "@/modules/booking/expiry";
 import { formatStudioDateTime } from "@/modules/scheduling/time";
+import { createPaymentAction } from "@/modules/payment/actions";
+import { PaymentStatusPoller } from "@/modules/payment/payment-status-poller";
 
-type BookingDetailProps = { params: Promise<{ id: string }> };
+type BookingDetailProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ paymentError?: string }>;
+};
 
 function formatRupiah(amount: number) {
   return new Intl.NumberFormat("id-ID", {
@@ -18,8 +24,13 @@ function formatRupiah(amount: number) {
 
 export default async function BookingDetailPage({
   params,
+  searchParams,
 }: BookingDetailProps) {
-  const [{ id }, { userId }] = await Promise.all([params, requireCustomer()]);
+  const [{ id }, query, { userId }] = await Promise.all([
+    params,
+    searchParams,
+    requireCustomer(),
+  ]);
   const booking = await prisma.$transaction(async (tx) => {
     const owned = await tx.booking.findFirst({
       where: { id, userId },
@@ -38,7 +49,7 @@ export default async function BookingDetailPage({
         endAt: true,
         status: true,
         holdExpiresAt: true,
-        payment: { select: { status: true } },
+        payment: { select: { status: true, qrImageUrl: true } },
       },
     });
   });
@@ -56,6 +67,20 @@ export default async function BookingDetailPage({
       <p className="mt-2 text-muted-foreground">
         Status: {booking.status.replaceAll("_", " ")}
       </p>
+      {query.paymentError && (
+        <p
+          className="mt-5 rounded-md border border-destructive/40 p-3 text-sm text-destructive"
+          role="alert"
+        >
+          {query.paymentError === "not_configured"
+            ? "Midtrans belum dikonfigurasi. Atur MIDTRANS_SERVER_KEY di environment server."
+            : query.paymentError === "expired"
+              ? "Waktu pembayaran sudah habis. Booking telah dilepas."
+              : query.paymentError === "not_found"
+                ? "Booking tidak ditemukan."
+                : "QRIS belum berhasil dibuat. Coba lagi selama waktu booking masih tersedia."}
+        </p>
+      )}
       <section className="mt-6 rounded-xl border bg-card p-5 sm:p-7">
         <dl className="grid gap-5 sm:grid-cols-2">
           <div>
@@ -99,10 +124,47 @@ export default async function BookingDetailPage({
           )}
         </dl>
         {booking.status === "WAITING_PAYMENT" && (
-          <p className="mt-6 rounded-md bg-secondary/60 p-3 text-sm">
-            Pembayaran QRIS akan tersedia pada tahap berikutnya. Slot tetap
-            ditahan sampai batas waktu di atas.
-          </p>
+          <>
+            <PaymentStatusPoller
+              bookingId={booking.id}
+              bookingStatus={booking.status}
+              paymentStatus={booking.payment?.status ?? null}
+              holdExpiresAt={booking.holdExpiresAt?.toISOString() ?? null}
+            />
+            {booking.payment?.qrImageUrl ? (
+              <div className="mt-6 flex flex-col items-center gap-3 rounded-lg border p-5">
+                <Image
+                  src={booking.payment.qrImageUrl}
+                  alt="QRIS untuk pembayaran booking"
+                  width={280}
+                  height={280}
+                  unoptimized
+                  className="h-64 w-64 object-contain"
+                />
+                <p className="text-center text-sm text-muted-foreground">
+                  Scan QRIS sebelum waktu pembayaran habis.
+                </p>
+              </div>
+            ) : booking.payment?.status === "UNPAID" ||
+              booking.payment?.status === "PENDING" ? (
+              <form action={createPaymentAction} className="mt-6">
+                <input type="hidden" name="bookingId" value={booking.id} />
+                <button
+                  type="submit"
+                  className="w-full rounded-md bg-primary px-4 py-3 font-medium text-primary-foreground"
+                >
+                  {booking.payment.status === "PENDING"
+                    ? "Pulihkan QRIS"
+                    : "Buat QRIS"}
+                </button>
+              </form>
+            ) : (
+              <p className="mt-6 rounded-md bg-secondary/60 p-3 text-sm">
+                Status pembayaran: {booking.payment?.status ?? "belum tersedia"}
+                .
+              </p>
+            )}
+          </>
         )}
       </section>
     </main>

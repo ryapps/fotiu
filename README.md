@@ -28,6 +28,13 @@ sebelum menguji constraint.
 
 Perintah pemeriksaan: `npm run lint`, `npm run typecheck`, dan `npm test`.
 
+Untuk transaksi QRIS sandbox, isi `MIDTRANS_SERVER_KEY` dan pastikan
+`MIDTRANS_ENVIRONMENT="sandbox"`. Endpoint notifikasi Midtrans adalah
+`/api/webhooks/payment`. Saat development lokal tanpa tunnel, settlement dapat
+disimulasikan untuk booking berstatus `WAITING_PAYMENT` dengan
+`npm run payment:simulate -- <booking-code>`. Script ini menolak berjalan jika
+APP_URL atau database bukan localhost.
+
 Compose hanya menjalankan satu database PostgreSQL untuk development lokal.
 Project managed Supabase belum dikonfigurasi; gunakan database terpisah untuk
 preview dan production, jangan memakai data production secara lokal.

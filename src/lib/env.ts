@@ -15,6 +15,8 @@ const envSchema = z
     BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
     MAX_ACTIVE_HOLDS_PER_USER: z.coerce.number().int().positive().default(2),
     CRON_SECRET: z.string().min(32).optional(),
+    MIDTRANS_SERVER_KEY: z.string().min(1).optional(),
+    MIDTRANS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
   })
   .superRefine((value, context) => {
     if (Boolean(value.AUTH_GOOGLE_ID) !== Boolean(value.AUTH_GOOGLE_SECRET)) {

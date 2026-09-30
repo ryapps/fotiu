@@ -440,14 +440,14 @@ Idempotent batch job, conditional update, lazy vs scheduled cleanup, keterbatasa
 ## Phase 6 — Payment
 
 - [ ] Akun dan konfigurasi sandbox payment provider
-- [ ] `payment/provider.ts` (`createQris`, `verifyWebhook`, `mapStatus`)
-- [ ] `createPayment` untuk membuat atau mengulang QRIS (FR-030)
-- [ ] Tampilan QR, countdown, dan status di booking detail (FR-031)
-- [ ] Endpoint `GET /api/bookings/[id]/status` dan polling UI
-- [ ] Webhook `POST /api/webhooks/payment` (FR-032 s.d. FR-036)
-- [ ] Tabel `payment_events` dipakai untuk idempotency
-- [ ] Tunnel atau cara simulasi webhook untuk development
-- [ ] Penanganan pembayaran terlambat (`needsReview`, FR-037)
+- [x] `payment/provider.ts` (`createQris`, `verifyWebhook`, `mapStatus`)
+- [x] `createPayment` untuk membuat atau mengulang QRIS (FR-030)
+- [x] Tampilan QR, countdown, dan status di booking detail (FR-031)
+- [x] Endpoint `GET /api/bookings/[id]/status` dan polling UI
+- [x] Webhook `POST /api/webhooks/payment` (FR-032 s.d. FR-036)
+- [x] Tabel `payment_events` dipakai untuk idempotency
+- [x] Simulasi webhook lokal terbatas ke localhost dan Midtrans sandbox
+- [x] Penanganan pembayaran terlambat (`needsReview`, FR-037)
 
 ### TASK-6.1 — Create QRIS Payment
 
@@ -474,10 +474,10 @@ TASK-5.1.
 
 **Acceptance Criteria**
 
-- [ ] Booking baru menampilkan QR sandbox dan countdown.
-- [ ] Kegagalan provider tidak menghilangkan booking, dan ada tombol coba lagi.
-- [ ] Tidak pernah ada lebih dari satu payment per booking.
-- [ ] Customer lain tidak dapat memanggil `createPayment` untuk booking bukan miliknya.
+- [ ] Booking baru menampilkan QR sandbox dan countdown (perlu kredensial sandbox untuk verifikasi nyata).
+- [x] Kegagalan provider tidak menghilangkan booking, dan ada tombol coba lagi.
+- [x] Tidak pernah ada lebih dari satu payment per booking.
+- [x] Customer lain tidak dapat memanggil `createPayment` untuk booking bukan miliknya.
 
 **Learning Focus**
 
@@ -513,13 +513,13 @@ TASK-6.1.
 
 **Acceptance Criteria**
 
-- [ ] Webhook valid mengubah payment ke PAID dan booking ke CONFIRMED.
-- [ ] Duplikat (termasuk dua request paralel) menghasilkan tepat satu perubahan.
-- [ ] Signature salah menghasilkan 401 dan tidak mengubah data.
-- [ ] Amount salah ditolak dan dicatat.
-- [ ] PAID setelah EXPIRED membuat `needsReview = true` dan booking tidak berubah.
-- [ ] Event mundur tidak menurunkan status PAID.
-- [ ] Tidak ada endpoint atau aksi client yang bisa mengubah status payment.
+- [x] Webhook valid mengubah payment ke PAID dan booking ke CONFIRMED.
+- [x] Duplikat (termasuk dua request paralel) menghasilkan tepat satu perubahan.
+- [x] Signature salah menghasilkan 401 dan tidak mengubah data.
+- [x] Amount salah ditolak dan dicatat.
+- [x] PAID setelah EXPIRED membuat `needsReview = true` dan booking tidak berubah.
+- [x] Event mundur tidak menurunkan status PAID.
+- [x] Tidak ada endpoint atau aksi client yang bisa mengubah status payment.
 
 **Learning Focus**
 
@@ -527,9 +527,13 @@ Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), s
 
 **Definition of Done (Phase 6)**
 
-- [ ] Alur sandbox lengkap: booking → QRIS → bayar → CONFIRMED otomatis.
-- [ ] Test webhook (valid, duplikat, invalid, terlambat) lulus.
-- [ ] Log webhook tersedia dan tidak membocorkan secret.
+- [ ] Alur sandbox lengkap: booking → QRIS → bayar → CONFIRMED otomatis (menunggu akun dan Server Key sandbox).
+- [x] Test webhook (valid, duplikat, invalid, terlambat) lulus.
+- [x] Log webhook tersedia melalui `payment_events` dan tidak menyimpan Server Key.
+
+Catatan progres: implementasi provider dan simulasi webhook lokal tersedia; unit
+dan integration test lulus. Alur QRIS sandbox nyata masih menunggu akun serta
+`MIDTRANS_SERVER_KEY` sandbox di `.env`.
 
 ---
 
