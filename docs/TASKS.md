@@ -710,14 +710,14 @@ kebutuhan refund manual dapat diturunkan dari booking CANCELLED + payment PAID.
 
 ## Phase 8 — Admin Booking Management
 
-- [ ] `/admin/bookings` dengan filter status, tanggal, pencarian, dan paginasi (FR-042)
-- [ ] `/admin/bookings/[id]` (FR-043, FR-048)
-- [ ] Indikator "perlu review" dan "perlu refund"
-- [ ] `cancelBookingAdmin` (FR-045)
+- [x] `/admin/bookings` dengan filter status, tanggal, pencarian, dan paginasi (FR-042)
+- [x] `/admin/bookings/[id]` (FR-043, FR-048)
+- [x] Indikator "perlu review" dan "perlu refund"
+- [x] `cancelBookingAdmin` (FR-045)
 - [ ] `rescheduleBooking` (FR-044)
 - [ ] `completeBooking` (FR-046)
-- [ ] `/admin/calendar` (FR-049)
-- [ ] `/admin/customers` (FR-047)
+- [x] `/admin/calendar` (FR-049)
+- [x] `/admin/customers` (FR-047)
 - [ ] (P2) `markPaymentRefunded` (FR-038)
 
 ### TASK-8.1 — Admin Reschedule
@@ -764,6 +764,8 @@ Admin menutup atau membatalkan booking dengan aturan transisi yang benar.
 **Dependency**
 
 TASK-6.2, PB-5. Complete/cancel action tetap bagian booking state machine; booking hanya completed setelah sesi photobooth valid atau manual recovery.
+
+Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer, indikator payment, dan pembatalan admin sudah dibuat. Reschedule menunggu keputusan sumber durasi karena booking tidak menyimpan snapshot durasi/buffer, sementara package dapat berubah. `completeBooking` tetap menunggu PB-5 karena model sesi photobooth belum tersedia di schema saat ini.
 
 **Requirements**
 

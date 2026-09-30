@@ -21,3 +21,8 @@ export const cancelMyBookingInputSchema = z.object({
   bookingId: bookingIdSchema,
   reason: z.string().trim().max(1000).optional(),
 });
+
+export const adminCancelBookingInputSchema = z.object({
+  bookingId: bookingIdSchema,
+  reason: z.string().trim().min(3).max(1000),
+});
