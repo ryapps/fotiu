@@ -38,6 +38,37 @@ enum PaymentEventResult {
   REJECTED
 }
 
+enum PhotoSessionStatus {
+  READY
+  STARTING
+  ACTIVE
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum PhotoSessionCompletionSource {
+  PROVIDER_EVENT
+  MANUAL_RECOVERY
+}
+
+enum BoothCommandType {
+  START_SESSION
+}
+
+enum BoothCommandStatus {
+  PENDING
+  PROCESSING
+  SUCCESS
+  FAILED
+}
+
+enum BoothEventType {
+  SESSION_STARTED
+  SESSION_COMPLETED
+  SESSION_FAILED
+}
+
 model User {
   id        String    @id @default(cuid())
   googleSub String    @unique
@@ -52,13 +83,15 @@ model User {
 }
 
 model Admin {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  passwordHash   String
-  name           String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now()) @db.Timestamptz(3)
-  scheduleBlocks ScheduleBlock[]
+  id                     String          @id @default(cuid())
+  email                  String          @unique
+  passwordHash           String
+  name                   String
+  isActive               Boolean         @default(true)
+  createdAt              DateTime        @default(now()) @db.Timestamptz(3)
+  scheduleBlocks         ScheduleBlock[]
+  checkedInBookings      Booking[]       @relation("BookingCheckIn")
+  completedPhotoSessions PhotoSession[]  @relation("SessionManualCompletion")
 
   @@map("admins")
 }
@@ -95,26 +128,30 @@ model Package {
 }
 
 model Booking {
-  id                  String        @id @default(cuid())
-  code                String        @unique
+  id                  String         @id @default(cuid())
+  code                String         @unique
   userId              String
   packageId           String
   packageNameSnapshot String
   priceSnapshot       Int
-  startAt             DateTime      @db.Timestamptz(3)
-  endAt               DateTime      @db.Timestamptz(3)
+  startAt             DateTime       @db.Timestamptz(3)
+  endAt               DateTime       @db.Timestamptz(3)
   status              BookingStatus
-  holdExpiresAt       DateTime?     @db.Timestamptz(3)
+  holdExpiresAt       DateTime?      @db.Timestamptz(3)
   customerNote        String?
-  cancelledAt         DateTime?     @db.Timestamptz(3)
+  cancelledAt         DateTime?      @db.Timestamptz(3)
   cancelledBy         CancelledBy?
   cancelReason        String?
-  completedAt         DateTime?     @db.Timestamptz(3)
-  createdAt           DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt           DateTime      @updatedAt @db.Timestamptz(3)
-  user                User          @relation(fields: [userId], references: [id], onDelete: Restrict)
-  package             Package       @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  completedAt         DateTime?      @db.Timestamptz(3)
+  checkedInAt         DateTime?      @db.Timestamptz(3)
+  checkedInByAdminId  String?
+  createdAt           DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime       @updatedAt @db.Timestamptz(3)
+  user                User           @relation(fields: [userId], references: [id], onDelete: Restrict)
+  package             Package        @relation(fields: [packageId], references: [id], onDelete: Restrict)
   payment             Payment?
+  checkedInByAdmin    Admin?         @relation("BookingCheckIn", fields: [checkedInByAdminId], references: [id], onDelete: SetNull)
+  photoSessions       PhotoSession[]
 
   @@index([userId, startAt])
   @@index([status, startAt])
@@ -193,4 +230,83 @@ model GalleryImage {
   package     Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   @@map("gallery_images")
+}
+
+model Booth {
+  id             String         @id @default(cuid())
+  name           String
+  deviceId       String         @unique
+  providerKey    String         @db.VarChar(40)
+  agentTokenHash String         @unique
+  isMaintenance  Boolean        @default(false)
+  lastSeenAt     DateTime?      @db.Timestamptz(3)
+  createdAt      DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime       @updatedAt @db.Timestamptz(3)
+  photoSessions  PhotoSession[]
+  commands       BoothCommand[]
+  events         BoothEvent[]
+
+  @@index([lastSeenAt])
+  @@map("booths")
+}
+
+model PhotoSession {
+  id                 String                        @id @default(cuid())
+  bookingId          String
+  boothId            String
+  providerKey        String                        @db.VarChar(40)
+  providerSessionId  String?
+  status             PhotoSessionStatus            @default(READY)
+  startedAt          DateTime?                     @db.Timestamptz(3)
+  completedAt        DateTime?                     @db.Timestamptz(3)
+  failedAt           DateTime?                     @db.Timestamptz(3)
+  completionSource   PhotoSessionCompletionSource?
+  completionReason   String?
+  completedByAdminId String?
+  createdAt          DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime                      @updatedAt @db.Timestamptz(3)
+  booking            Booking                       @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  booth              Booth                         @relation(fields: [boothId], references: [id], onDelete: Restrict)
+  completedByAdmin   Admin?                        @relation("SessionManualCompletion", fields: [completedByAdminId], references: [id], onDelete: Restrict)
+  commands           BoothCommand[]
+  events             BoothEvent[]
+
+  @@unique([id, boothId])
+  @@index([bookingId, createdAt])
+  @@index([boothId, status, createdAt])
+  @@map("photo_sessions")
+}
+
+model BoothCommand {
+  id             String             @id @default(cuid())
+  boothId        String
+  photoSessionId String
+  type           BoothCommandType
+  status         BoothCommandStatus @default(PENDING)
+  idempotencyKey String             @unique
+  createdAt      DateTime           @default(now()) @db.Timestamptz(3)
+  executedAt     DateTime?          @db.Timestamptz(3)
+  failedAt       DateTime?          @db.Timestamptz(3)
+  errorMessage   String?
+  booth          Booth              @relation(fields: [boothId], references: [id], onDelete: Restrict)
+  photoSession   PhotoSession       @relation(fields: [photoSessionId, boothId], references: [id, boothId], onDelete: Restrict)
+
+  @@unique([photoSessionId, type], map: "booth_commands_one_type_per_session_key")
+  @@index([boothId, status, createdAt])
+  @@map("booth_commands")
+}
+
+model BoothEvent {
+  id             String         @id @default(cuid())
+  eventId        String         @unique
+  boothId        String
+  photoSessionId String
+  type           BoothEventType
+  occurredAt     DateTime       @db.Timestamptz(3)
+  receivedAt     DateTime       @default(now()) @db.Timestamptz(3)
+  booth          Booth          @relation(fields: [boothId], references: [id], onDelete: Restrict)
+  photoSession   PhotoSession   @relation(fields: [photoSessionId, boothId], references: [id, boothId], onDelete: Restrict)
+
+  @@index([photoSessionId, occurredAt])
+  @@map("booth_events")
 }

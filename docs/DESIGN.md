@@ -179,7 +179,7 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 ### `booths`
 
 - **Purpose:** identitas booth/device pada satu studio.
-- **Fields:** `id`, `name`, `deviceId` (unique), `providerKey` (string pendek; `mock` wajib untuk P0), `agentTokenHash` (credential hash, bukan token mentah), `isMaintenance`, `lastSeenAt`, `createdAt`, `updatedAt`.
+- **Fields:** `id`, `name`, `deviceId` (unique), `providerKey` (string pendek; `mock` wajib untuk P0), `agentTokenHash` (credential hash, bukan token mentah; wajib setelah booth diprovision), `isMaintenance`, `lastSeenAt`, `createdAt`, `updatedAt`.
 - Nilai status UI `MAINTENANCE`, `OFFLINE`, `BUSY`, `ONLINE` diturunkan dari maintenance flag, heartbeat, dan active session. Jangan menyimpan online/busy sebagai status manual yang dapat drift.
 - **Index:** `deviceId` unique; `lastSeenAt` untuk daftar booth dan pemeriksaan heartbeat.
 
@@ -187,7 +187,7 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 
 - **Purpose:** satu percobaan sesi photobooth yang terpisah dari booking; satu booking dapat memiliki 0..n percobaan.
 - **Fields:** `id`, `bookingId`, `boothId`, `providerKey`, `providerSessionId` nullable, `status` (`READY|STARTING|ACTIVE|PROCESSING|COMPLETED|FAILED`), `startedAt`, `completedAt`, `failedAt`, `completionSource` (`PROVIDER_EVENT|MANUAL_RECOVERY` nullable), `completionReason` nullable, `completedByAdminId` nullable, `createdAt`, `updatedAt`.
-- Foreign key booking/booth memakai `ON DELETE RESTRICT` agar riwayat operasional tetap ada. Photo session FAILED tetap tersimpan; retry membuat record baru.
+- Foreign key booking/booth memakai `ON DELETE RESTRICT` agar riwayat operasional tetap ada. Photo session FAILED tetap tersimpan; retry membuat record baru. `completedByAdminId` juga memakai `RESTRICT` supaya audit manual recovery tidak kehilangan aktor.
 - **Partial unique indexes** di migration membatasi satu active session per booth dan per booking untuk status `READY`, `STARTING`, `ACTIVE`, `PROCESSING`. P0 memakai satu booth; constraint tetap melindungi assignment dan retry bersamaan.
 - CHECK menjaga timestamp sesuai transisi dan alasan wajib untuk completion manual.
 
@@ -207,6 +207,8 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 **Disederhanakan:** tidak ada tabel `slots` (slot dihitung, bukan disimpan), tidak ada tabel session/account Auth.js (JWT), tidak ada tabel status history (Future Improvement). Tabel `payment_events` dipertahankan karena penting untuk idempotency.
 
 Constraint yang tidak dimodelkan Prisma ditulis di SQL migration: harga package tidak negatif, durasi dan buffer package valid, `endAt > startAt` untuk booking dan schedule block, serta rentang jam dan weekday operating hours valid. Trigger memastikan `payments.amount` sama dengan `bookings.priceSnapshot` dan mencegah snapshot berubah setelah payment dibuat. Constraint anti-overlap booking dijelaskan di bagian 10. Migration Prisma berikutnya harus mempertahankan semua constraint dan trigger tersebut.
+
+Constraint photobooth juga memakai SQL migration: partial unique index membatasi satu sesi aktif per booth dan booking; pasangan `(photoSessionId, boothId)` pada command/event memastikan record hanya merujuk booth yang sama dengan sesi; timestamp terminal mengikuti status; completion manual mewajibkan alasan dan admin. Status ONLINE/OFFLINE/BUSY tetap merupakan proyeksi, bukan kolom yang bisa diedit langsung.
 
 ## 8. ERD
 
@@ -847,6 +849,8 @@ interface PhotoboothProvider {
 ### Mock Provider Design
 
 `MockBoothProvider` adalah adapter P0 yang tidak menyentuh hardware. Konfigurasi test/dev dapat memilih mode success, failure, unavailable, dan delay. Alur success mengirim `SESSION_STARTED`, opsional `PROCESSING_STARTED`, lalu `SESSION_COMPLETED`; failure mengirim `SESSION_FAILED`. Unavailable gagal tanpa membuat sesi tampak aktif. Delayed response memungkinkan UI/retry/reconnect diuji. Simulasi memakai command dan event pipeline yang sama dengan adapter nyata, bukan shortcut yang langsung menandai booking selesai.
+
+Implementasi awal mock menggunakan polling `getStatus()` (`supportsSessionEvents=false`). Adapter menerima idempotency key yang sama untuk retry, menghasilkan session ID stabil dari key tersebut, lalu status dinormalisasi menjadi `SESSION_STARTED`, `SESSION_COMPLETED`, atau `SESSION_FAILED` oleh layer agent. Jika proses mock restart dan status proses lokal hilang, mock menjawab `UNAVAILABLE` untuk session itu sehingga agent melakukan rekonsiliasi dan tidak memulai simulasi kedua diam-diam. Mode `delay` menunda hasil `startSession`; capability stop dan reprint false dan method tidak disediakan.
 
 ### Provider Capability
 

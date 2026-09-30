@@ -26,3 +26,9 @@ export const adminCancelBookingInputSchema = z.object({
   bookingId: bookingIdSchema,
   reason: z.string().trim().min(3).max(1000),
 });
+
+export const adminRescheduleBookingInputSchema = z.object({
+  bookingId: bookingIdSchema,
+  newStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),
+  expectedStartAt: z.iso.datetime({ offset: true }),
+});

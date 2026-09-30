@@ -548,31 +548,35 @@ Workstream ini mempertahankan phase booking/payment sebelumnya sebagai dependenc
 
 **Dependency:** Phase 1, Phase 2.
 
-- [ ] Tambahkan `booths`, `photo_sessions`, `booth_commands`, dan normalized `booth_events`.
-- [ ] Tambahkan field check-in admin pada booking tanpa mengubah booking status saat check-in.
-- [ ] Definisikan provider-agnostic provider key, booth read status, command/event enums, dan photo session status.
-- [ ] Tambahkan foreign keys, CHECK constraints, partial unique indexes untuk satu active session per booth dan booking, serta index query yang nyata.
-- [ ] Pertahankan booking exclusion constraint dan snapshot/payment constraints.
+- [x] Tambahkan `booths`, `photo_sessions`, `booth_commands`, dan normalized `booth_events`.
+- [x] Tambahkan field check-in admin pada booking tanpa mengubah booking status saat check-in.
+- [x] Definisikan provider-agnostic provider key, booth read status, command/event enums, dan photo session status.
+- [x] Tambahkan foreign keys, CHECK constraints, partial unique indexes untuk satu active session per booth dan booking, serta index query yang nyata.
+- [x] Pertahankan booking exclusion constraint dan snapshot/payment constraints.
 - [ ] Test migration dari database kosong dan constraint active session.
 
 **Definition of Done:** booking memiliki check-in ter-audit; percobaan photo session dan command dapat direpresentasikan tanpa provider tertentu; database mencegah active-session duplikat.
 
 **Learning Focus:** domain modeling, state machine, partial unique index, FK, konsistensi database.
 
+Catatan progres PB-1: Prisma schema dan migration domain photobooth sudah dibuat. Validasi schema berhasil; Prisma Client generation terhalang file query engine Windows yang sedang terkunci. Tes migration/constraint belum dijalankan.
+
 ### PB-2 — Provider Abstraction dan Mock Provider
 
 **Dependency:** PB-1.
 
-- [ ] Definisikan contract minimal `startSession()` dan `getStatus()`.
-- [ ] Definisikan capability sederhana: start, status events, stop, reprint; stop/reprint optional.
-- [ ] Normalisasi minimal SESSION_STARTED, SESSION_COMPLETED, SESSION_FAILED.
-- [ ] Implementasikan `MockBoothProvider` sebagai adapter P0 yang melewati command/event flow yang sama dengan provider nyata.
-- [ ] Simulasikan success, failure, unavailable, dan delayed response.
-- [ ] Tandai unsupported capability tanpa perilaku palsu.
+- [x] Definisikan contract minimal `startSession()` dan `getStatus()`.
+- [x] Definisikan capability sederhana: start, status events, stop, reprint; stop/reprint optional.
+- [x] Normalisasi minimal SESSION_STARTED, SESSION_COMPLETED, SESSION_FAILED.
+- [x] Implementasikan `MockBoothProvider` sebagai adapter P0 yang melewati command/event flow yang sama dengan provider nyata.
+- [x] Simulasikan success, failure, unavailable, dan delayed response.
+- [x] Tandai unsupported capability tanpa perilaku palsu.
 
 **Definition of Done:** alur sesi dapat disimulasikan tanpa hardware dan provider adapter tidak mengubah core booking rules.
 
 **Learning Focus:** dependency inversion, adapter pattern, idempotency, abstraction secukupnya.
+
+Catatan progres PB-2: provider contract, status normalizer, dan mock provider tersedia. Mock idempotency mengembalikan session yang sama untuk retry key identik; mode unavailable tidak membuat sesi, sementara stop/reprint ditandai unsupported. Alur cloud command/event dan pengujian adapter masih tersisa di PB-3/PB-5.
 
 ### PB-3 — Local Booth Agent
 
@@ -714,7 +718,7 @@ kebutuhan refund manual dapat diturunkan dari booking CANCELLED + payment PAID.
 - [x] `/admin/bookings/[id]` (FR-043, FR-048)
 - [x] Indikator "perlu review" dan "perlu refund"
 - [x] `cancelBookingAdmin` (FR-045)
-- [ ] `rescheduleBooking` (FR-044)
+- [x] `rescheduleBooking` (FR-044)
 - [ ] `completeBooking` (FR-046)
 - [x] `/admin/calendar` (FR-049)
 - [x] `/admin/customers` (FR-047)
@@ -765,7 +769,7 @@ Admin menutup atau membatalkan booking dengan aturan transisi yang benar.
 
 TASK-6.2, PB-5. Complete/cancel action tetap bagian booking state machine; booking hanya completed setelah sesi photobooth valid atau manual recovery.
 
-Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer, indikator payment, dan pembatalan admin sudah dibuat. Reschedule menunggu keputusan sumber durasi karena booking tidak menyimpan snapshot durasi/buffer, sementara package dapat berubah. `completeBooking` tetap menunggu PB-5 karena model sesi photobooth belum tersedia di schema saat ini.
+Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer, indikator payment, pembatalan admin, dan reschedule sudah dibuat. Reschedule mempertahankan total rentang booking yang tersimpan (`endAt - startAt`), memvalidasi jam operasional, interval slot, blokir, serta booking lain; waktu awal yang dikirim form dipakai untuk menolak submit usang dari admin lain. Acceptance test reschedule belum dijalankan. `completeBooking` tetap menunggu PB-5 karena PB-1 sampai PB-5 belum tersedia dan schema belum memiliki model sesi photobooth.
 
 **Requirements**
 

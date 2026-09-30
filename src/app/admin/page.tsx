@@ -22,9 +22,24 @@ export default async function AdminDashboardPage() {
         Kelola jadwal
       </Link>
       <div className="mt-6 flex flex-wrap gap-3">
-        <Link className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary" href="/admin/bookings">Booking</Link>
-        <Link className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary" href="/admin/calendar">Kalender</Link>
-        <Link className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary" href="/admin/customers">Customer</Link>
+        <Link
+          className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          href="/admin/bookings"
+        >
+          Booking
+        </Link>
+        <Link
+          className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          href="/admin/calendar"
+        >
+          Kalender
+        </Link>
+        <Link
+          className="rounded-md border px-4 py-2 text-sm font-medium hover:bg-secondary"
+          href="/admin/customers"
+        >
+          Customer
+        </Link>
       </div>
       <form action={signOutAdmin} className="mt-6">
         <button
