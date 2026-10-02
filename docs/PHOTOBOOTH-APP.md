@@ -37,6 +37,13 @@ atau `multicamera`. Index mengikuti action yang dikonfigurasi dalam aplikasi.
 Agent hanya listen pada `127.0.0.1`, memeriksa token constant-time, dan menerima
 callback dari loopback.
 
+Untuk menghubungkan komputer booth ke deployment, buat booth `Photobooth-App`
+di admin `https://fotiu.vercel.app` dan provision credential device baru di
+database production. Pada environment agent di komputer booth, set
+`BOOTH_AGENT_BASE_URL=https://fotiu.vercel.app` serta `BOOTH_DEVICE_ID` dan
+`BOOTH_DEVICE_TOKEN` yang baru. Pengaturan `BOOTH_PHOTOBOOTH_APP_*` di atas tetap
+menunjuk ke software dan callback loopback pada komputer itu.
+
 ## Commander callback
 
 Di Admin Center → Help, buka dokumentasi REST API interaktif untuk instalasi

@@ -1034,7 +1034,7 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 - [x] Database produksi Supabase dan 8 migration diterapkan; role runtime DML terpisah dari role migration
 - [x] Seed admin produksi dengan password acak kuat yang berbeda dari password seed dev
-- [ ] Konfigurasi object storage (bucket, CORS untuk presigned upload)
+- [ ] Konfigurasi object storage (bucket `fotiu-gallery` sudah dibuat di Supabase; kunci S3, environment Vercel, dan CORS untuk presigned upload belum selesai)
 - [x] Deploy ke Vercel dengan environment produksi, Midtrans sandbox, dan koneksi database runtime terbatas
 - [x] Domain tetap dan HTTPS pada deployment produksi: `https://fotiu.vercel.app`
 - [ ] Konfigurasi OAuth produksi (redirect URI pada domain deployment, consent screen)
@@ -1056,7 +1056,8 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 Catatan kesiapan Phase 13: `https://fotiu.vercel.app` sudah terdeploy dengan
 Supabase Jakarta, TLS, 8 migration, seed admin, role runtime DML terbatas,
 Midtrans sandbox, dan `CRON_SECRET`. Role `anon`/`authenticated` Supabase tidak
-memiliki hak baca tabel booking. Kelanjutan aktivasi memerlukan OAuth redirect
+memiliki hak baca tabel booking. Bucket galeri publik sudah dibuat dengan batas
+10 MiB untuk JPEG/PNG/WebP. Kelanjutan aktivasi memerlukan OAuth redirect
 production pada Google Cloud, kredensial S3-compatible dan CORS bucket galeri,
 provision booth pada database production, serta smoke test end-to-end. Notifikasi
 Midtrans melalui `X-Append-Notification` untuk charge baru belum dibuktikan lewat
