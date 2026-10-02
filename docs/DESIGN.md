@@ -658,7 +658,7 @@ Check-in, assignment, start session, dan recovery berada pada booking detail adm
 - **Command/event trust:** client admin hanya meminta operasi; cloud memvalidasi state booking/booth. Agent/provider payload tidak dipercaya sebelum dinormalisasi, divalidasi, dideduplikasi, dan transisi state diperiksa server-side.
 - **IDOR:** filter `userId` dari session pada semua query customer, respon 404 untuk resource orang lain.
 - **Webhook:** signature verification, cek amount, idempotency (bagian 13), payload mentah tidak dipercaya untuk status di luar mapping.
-- **Environment variables:** secret hanya di environment (Vercel), tidak di repository. `.env*` di-ignore. Variabel client-side (`NEXT_PUBLIC_*`) tidak boleh berisi secret.
+- **Environment variables:** secret hanya di environment (Vercel), tidak di repository. `.env*` di-ignore oleh Git dan `.vercelignore` untuk deploy CLI. Variabel client-side (`NEXT_PUBLIC_*`) tidak boleh berisi secret.
 - **Database permissions:** pisahkan role runtime dan role migration. `DATABASE_URL` memakai role runtime yang hanya mendapat koneksi, `USAGE` pada schema aplikasi, serta `SELECT`/`INSERT`/`UPDATE`/`DELETE` pada tabel yang dipakai aplikasi; jangan beri `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `CREATE` pada schema, atau kepemilikan objek. Beri hak sequence hanya bila schema aktual memerlukannya. `DIRECT_URL` dipakai Prisma CLI untuk migration dan memakai role migration yang boleh mengubah schema; secret/URL itu tidak boleh dikirim ke browser. Atur default privileges agar tabel baru yang dibuat role migration memberikan hak DML minimum ke role runtime. Remote database wajib TLS (`sslmode=require` atau mekanisme TLS provider). Jangan mengekspos database langsung ke client. Jika memakai Supabase, jangan memakai _service role key_ di sisi client, dan aktifkan RLS bila tabel bisa diakses lewat API Supabase. Verifikasi role, grant, TLS, dan migration pada database environment setelah provision; role `postgres` lokal untuk development bukan bukti least privilege production.
 - **Upload validation:** upload lewat presigned URL dengan batas tipe (jpeg/png/webp) dan ukuran. Nama file di-generate server. Hanya admin yang dapat meminta URL upload. Cek ulang `contentType` dan `size` saat menyimpan metadata.
 - **Rate limiting:** pada login admin, pembuatan booking, dan pembuatan QRIS. Karena serverless tidak berbagi memori, gunakan rate limit rules di Vercel Firewall atau penghitung sederhana berbasis database. Tidak memakai infrastruktur tambahan dulu. Webhook tidak dibatasi agresif.
@@ -681,6 +681,8 @@ flowchart LR
 ```
 
 Object storage memakai API S3-compatible dari endpoint yang dikonfigurasi; adapter AWS SDK v3 membuat presigned PUT 60 detik. Bucket harus mengizinkan PUT dari origin `APP_URL` dengan header `Content-Type` dan menyediakan public read pada `STORAGE_PUBLIC_URL`. File hanya JPEG/PNG/WebP dan maksimal 10 MiB. Object key UUID dibuat server; saat metadata akan disimpan, server memeriksa HEAD (ukuran dan MIME) serta magic bytes sebelum mencatat URL. Image baru menjadi draft dan harus dipublikasikan admin.
+
+Deployment Fotiu memakai Vercel Functions region `sin1` (Singapura), dekat database Supabase region `ap-southeast-2` (Jakarta). Runtime memakai Supavisor transaction pooler; Prisma migration dari komputer yang tidak memiliki IPv6 memakai session pooler. Data API Supabase tidak dipakai aplikasi dan role `anon`/`authenticated` tidak diberi DML pada tabel Fotiu.
 
 ## 21. Environments
 

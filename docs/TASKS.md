@@ -1055,7 +1055,8 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 Catatan kesiapan Phase 13: `https://fotiu.vercel.app` sudah terdeploy dengan
 Supabase Jakarta, TLS, 8 migration, seed admin, role runtime DML terbatas,
-Midtrans sandbox, dan `CRON_SECRET`. Role `anon`/`authenticated` Supabase tidak
+Midtrans sandbox, dan `CRON_SECRET`. Vercel Functions memakai region Singapura
+yang dekat database Jakarta. Role `anon`/`authenticated` Supabase tidak
 memiliki hak baca tabel booking. Bucket galeri publik sudah dibuat dengan batas
 10 MiB untuk JPEG/PNG/WebP, dan preflight CORS PUT dari domain produksi lulus.
 Kelanjutan aktivasi memerlukan OAuth redirect production pada Google Cloud dan
