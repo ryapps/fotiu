@@ -344,6 +344,7 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
   await page.setViewportSize({ width: 390, height: 844 });
   for (const path of ["/", "/gallery", "/packages", "/login"]) {
     const response = await page.goto(path);
+    expect(response?.status()).toBe(200);
     expect(response?.headers()["x-frame-options"]).toBe("DENY");
     expect(response?.headers()["x-content-type-options"]).toBe("nosniff");
     await page.keyboard.press("Tab");
@@ -354,15 +355,15 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
     await expect(page).toHaveURL(/#main-content$/);
     const heading =
       path === "/"
-        ? "Abadikan momen dengan sesi yang terasa personal."
+        ? /Abadikan momen.*sesi foto.*personal\./s
         : path === "/gallery"
           ? "Gallery"
           : path === "/packages"
             ? "Pilih sesi foto Anda"
             : "Masuk sebagai customer";
     await expect(
-      page.getByRole("heading", { name: heading, level: 1 }),
-    ).toBeVisible();
+      page.getByRole("heading", { level: 1 }),
+    ).toContainText(heading);
     await expectNoHorizontalOverflow(page);
   }
 });
