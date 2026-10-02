@@ -6,6 +6,8 @@ export default defineConfig({
     environment: "node",
     include: ["src/**/*.integration.test.ts"],
     passWithNoTests: false,
+    fileParallelism: false,
+    sequence: { concurrent: false },
   },
   resolve: {
     alias: {

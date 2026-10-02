@@ -25,7 +25,12 @@ const schema = z.discriminatedUnion("operation", [
       .string()
       .trim()
       .regex(/^[A-Za-z0-9_-]{1,128}$/),
-    providerKey: z.literal("mock"),
+    providerKey: z.enum(["mock", "freebooth", "photobooth_app"]),
+  }),
+  z.object({
+    operation: z.literal("provider"),
+    boothId: z.string().trim().min(1).max(64),
+    providerKey: z.enum(["mock", "freebooth", "photobooth_app"]),
   }),
   z.object({
     operation: z.literal("rotate"),
@@ -53,13 +58,28 @@ export async function manageBoothCredentialAction(
     return { error: "Data booth tidak valid atau provider belum didukung." };
 
   if (parsed.data.operation === "create") {
+    const boothInput = parsed.data;
     const token = createDeviceToken();
-    const rows = await prisma.$queryRaw<Array<{ id: string }>>`
-      INSERT INTO "booths" ("id", "name", "deviceId", "providerKey", "agentTokenHash", "isMaintenance", "createdAt", "updatedAt")
-      VALUES (${randomUUID()}, ${parsed.data.name}, ${parsed.data.deviceId}, ${parsed.data.providerKey}, ${hashDeviceToken(token)}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      ON CONFLICT ("deviceId") DO NOTHING
-      RETURNING "id"
-    `;
+    const rows = await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`LOCK TABLE "booths" IN EXCLUSIVE MODE`;
+      const existing = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "booths" LIMIT 1
+      `;
+      if (existing.length) return [];
+      return tx.$queryRaw<Array<{ id: string }>>`
+        INSERT INTO "booths" ("id", "name", "deviceId", "providerKey", "agentTokenHash", "isMaintenance", "createdAt", "updatedAt")
+        VALUES (${randomUUID()}, ${boothInput.name}, ${boothInput.deviceId}, ${boothInput.providerKey}, ${hashDeviceToken(token)}, false, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT ("deviceId") DO NOTHING
+        RETURNING "id"
+      `;
+    });
+    if (rows.length === 0) {
+      const existing = await prisma.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "booths" LIMIT 1
+      `;
+      if (existing.length)
+        return { error: "P0 saat ini hanya mendukung satu booth." };
+    }
     if (rows.length === 0) return { error: "Device ID sudah digunakan." };
     revalidatePath("/admin/booths");
     return {
@@ -67,6 +87,45 @@ export async function manageBoothCredentialAction(
       deviceId: parsed.data.deviceId,
       message:
         "Booth dibuat. Salin token sekarang; token mentah tidak akan ditampilkan lagi.",
+    };
+  }
+
+  if (parsed.data.operation === "provider") {
+    const providerInput = parsed.data;
+    const result = await prisma.$transaction(async (tx) => {
+      const booths = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "booths" WHERE "id" = ${providerInput.boothId} FOR UPDATE
+      `;
+      if (!booths[0]) return "NOT_FOUND";
+      const activeSessions = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "photo_sessions"
+        WHERE "boothId" = ${providerInput.boothId}
+          AND "status" IN ('READY', 'STARTING', 'ACTIVE', 'PROCESSING')
+        LIMIT 1
+      `;
+      const activeCommands = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "booth_commands"
+        WHERE "boothId" = ${providerInput.boothId}
+          AND "status" IN ('PENDING', 'PROCESSING')
+        LIMIT 1
+      `;
+      if (activeSessions.length || activeCommands.length) return "IN_USE";
+      await tx.$executeRaw`
+        UPDATE "booths" SET "providerKey" = ${providerInput.providerKey}, "updatedAt" = CURRENT_TIMESTAMP
+        WHERE "id" = ${providerInput.boothId}
+      `;
+      return "UPDATED";
+    });
+    if (result === "NOT_FOUND") return { error: "Booth tidak ditemukan." };
+    if (result === "IN_USE")
+      return {
+        error:
+          "Provider tidak dapat diganti selama ada sesi atau command yang masih aktif.",
+      };
+    revalidatePath("/admin/booths");
+    return {
+      message:
+        "Provider diperbarui. Sesuaikan BOOTH_PROVIDER_KEY di komputer booth dan restart agent.",
     };
   }
 

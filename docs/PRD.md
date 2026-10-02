@@ -11,7 +11,7 @@ Saat ini proses tersebut berjalan lewat chat manual. Customer harus bertanya jad
 
 Browse Package → Google Login → Select Schedule → Booking → QRIS Payment → Payment Verified → Booking Confirmed → Admin Check-in → Assign Booth → Photo Session → Booking Completed
 
-Fotiu menghubungkan cloud application dengan komputer booth lokal melalui Local Booth Agent. Produk P0 tidak bergantung pada software atau vendor photobooth tertentu: `MockBoothProvider` membuat alur dapat dikembangkan dan diuji tanpa kamera, printer, lisensi, atau software berbayar. Integrasi provider nyata adalah P1.
+Fotiu menghubungkan cloud application dengan komputer booth lokal melalui Local Booth Agent. Produk P0 tidak bergantung pada software atau vendor photobooth tertentu: `MockBoothProvider` membuat alur dapat dikembangkan dan diuji tanpa kamera, printer, lisensi, atau software berbayar. Untuk demo P1, Photobooth-App menjadi adapter lokal opsional: agent memicu documented action REST API dan menerima lifecycle callback Commander pada loopback. FreeBooth tetap tersedia sebagai workflow manual. Software booth dan kamera tetap berjalan di komputer studio; cloud tidak mengakses hardware.
 
 Produk ini juga proyek portfolio yang dikerjakan oleh satu developer. Karena itu scope dijaga kecil dan realistis. Fokusnya satu studio, satu alur end-to-end yang benar-benar berjalan, dan beberapa masalah teknis nyata: double booking, webhook payment, dan authorization.
 
@@ -123,13 +123,13 @@ Sengaja **tidak** dikerjakan pada MVP:
 
 Browse → Package → Login (Google) → Schedule → Booking (`WAITING_PAYMENT`, slot ditahan) → Payment (QRIS) → Confirmation (`CONFIRMED` otomatis via webhook) → Datang ke studio.
 
-**Admin**
+**Admin (P0 mock / P1 Photobooth-App atau FreeBooth manual)**
 
-Login → Dashboard → Booking (lihat/kelola) → Check-in booking terkonfirmasi dan lunas → Assign booth online → Start photo session → Pantau hasil sesi → Booking completed setelah sesi selesai (atau manual recovery dengan alasan).
+Login → Dashboard → Booking (lihat/kelola) → Check-in booking terkonfirmasi dan lunas → Assign booth online → mulai sesi lewat command mock atau jalankan FreeBooth langsung dan catat mulai secara manual → verifikasi hasil sesi → Booking completed setelah event mock atau manual recovery dengan alasan.
 
 **P0 system flow**
 
-Cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui HTTPS polling, meneruskannya ke provider adapter, lalu mengirim normalized event ke cloud. P0 menggunakan `MockBoothProvider`. Booking dan photo session memiliki status terpisah.
+Untuk P0 mock, cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui HTTPS polling, meneruskannya ke provider adapter, lalu mengirim normalized event ke cloud. Photobooth-App dipicu oleh agent melalui API action loopback; Commander `counting`/`capture` menjadi SESSION_STARTED dan `finished` menjadi SESSION_COMPLETED. FreeBooth memakai heartbeat saja dan admin mengoperasikan aplikasi lokal serta mencatat hasil secara manual. Booking dan photo session memiliki status terpisah.
 
 ## 7. Functional Requirements
 
@@ -138,7 +138,7 @@ Cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui 
 | ID     | Requirement                                                                       |
 | ------ | --------------------------------------------------------------------------------- |
 | FR-001 | Guest dapat melihat daftar package aktif tanpa login.                             |
-| FR-002 | Guest dapat melihat detail package (deskripsi, harga, durasi, foto).              |
+| FR-002 | Guest dapat melihat detail package (deskripsi, harga, durasi sesi 10 menit, jeda 2 menit, foto). |
 | FR-003 | Guest dapat melihat gallery.                                                      |
 | FR-004 | Guest dapat melihat informasi studio (alamat, jam operasional, kontak).           |
 | FR-005 | Guest yang membuka halaman customer/admin diarahkan ke halaman login yang sesuai. |
@@ -210,25 +210,27 @@ Cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui 
 | ------ | -------------------------------------------------------------------------------------- |
 | FR-060 | Admin dapat mengatur jam operasional per hari dalam seminggu.                          |
 | FR-061 | Admin dapat memblokir rentang waktu tertentu (libur, maintenance).                     |
-| FR-062 | Availability dihitung dari durasi package, jam operasional, blokir, dan booking aktif. |
+| FR-062 | Availability menyediakan sesi 10 menit dengan jeda 2 menit; slot dimulai setiap 12 menit selama jam operasional, kecuali terhalang booking atau schedule block. |
 | FR-063 | Ada batas minimum lead time dan maksimum hari ke depan untuk booking.                  |
 
 ### Photobooth Operations
 
-| ID     | Requirement                                                                                                                                                   |
-| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FR-070 | Admin dapat melihat booth dan status ONLINE, OFFLINE, BUSY, atau MAINTENANCE.                                                                                 |
-| FR-071 | Local Booth Agent mengautentikasi sebagai device tersendiri dan mengirim heartbeat berkala.                                                                   |
-| FR-072 | Sistem menentukan status ONLINE/OFFLINE dari waktu heartbeat dan timeout yang dapat dikonfigurasi.                                                            |
-| FR-073 | Admin hanya dapat check-in booking CONFIRMED, payment PAID, tidak terminal, dan sesuai waktu/jadwal sesi.                                                     |
-| FR-074 | Setelah check-in, admin dapat assign booth ONLINE yang tidak BUSY atau MAINTENANCE dan tidak memiliki active photo session.                                   |
-| FR-075 | Assignment membuat photo session READY yang terpisah dari status booking. Satu booking boleh memiliki beberapa photo session sepanjang hanya satu yang aktif. |
-| FR-076 | Admin dapat meminta `START_SESSION`; sistem membuat command idempotent dan agent meneruskannya melalui provider adapter.                                      |
-| FR-077 | Sistem menerima normalized event SESSION_STARTED, SESSION_COMPLETED, dan SESSION_FAILED; event duplikat tidak mengulang transisi.                             |
-| FR-078 | Pengiriman command atau status command SUCCESS tidak dianggap sebagai bukti sesi sudah dimulai atau selesai.                                                  |
-| FR-079 | Booking tidak menjadi COMPLETED pada SESSION_FAILED; admin dapat memulai recovery yang tercatat.                                                              |
-| FR-080 | Core MVP berjalan memakai MockBoothProvider yang dapat mensimulasikan sukses, gagal, unavailable, dan respons tertunda tanpa hardware.                        |
-| FR-081 | Integrasi provider nyata hanya ditambahkan setelah P0 dan menggunakan mekanisme resmi yang terdokumentasi.                                                    |
+| ID     | Requirement                                                                                                                                                                                |
+| ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-070 | Admin dapat melihat booth dan status ONLINE, OFFLINE, BUSY, atau MAINTENANCE.                                                                                                              |
+| FR-071 | Local Booth Agent mengautentikasi sebagai device tersendiri dan mengirim heartbeat berkala.                                                                                                |
+| FR-072 | Sistem menentukan status ONLINE/OFFLINE dari waktu heartbeat dan timeout yang dapat dikonfigurasi.                                                                                         |
+| FR-073 | Admin hanya dapat check-in dan memulai sesi booking CONFIRMED + PAID selama 10 menit sejak `startAt`; booking menahan slot 12 menit termasuk jeda.                                        |
+| FR-074 | Setelah check-in, admin dapat assign booth ONLINE yang tidak BUSY atau MAINTENANCE dan tidak memiliki active photo session.                                                                |
+| FR-075 | Assignment membuat photo session READY yang terpisah dari status booking. Satu booking boleh memiliki beberapa photo session sepanjang hanya satu yang aktif.                              |
+| FR-076 | Admin dapat meminta `START_SESSION`; sistem membuat command idempotent dan agent meneruskannya melalui provider adapter.                                                                   |
+| FR-077 | Sistem menerima normalized event SESSION_STARTED, SESSION_COMPLETED, dan SESSION_FAILED; event duplikat tidak mengulang transisi.                                                          |
+| FR-078 | Pengiriman command atau status command SUCCESS tidak dianggap sebagai bukti sesi sudah dimulai atau selesai.                                                                               |
+| FR-079 | Booking tidak menjadi COMPLETED pada SESSION_FAILED; admin dapat memulai recovery yang tercatat.                                                                                           |
+| FR-080 | Core MVP berjalan memakai MockBoothProvider yang dapat mensimulasikan sukses, gagal, unavailable, dan respons tertunda tanpa hardware.                                                     |
+| FR-081 | Integrasi provider nyata hanya ditambahkan setelah P0 dan menggunakan mekanisme resmi yang terdokumentasi.                                                                                 |
+| FR-082 | Untuk demo FreeBooth tanpa API kontrol resmi, admin menjalankan software lokal, mencatat sesi aktif manual, dan menyelesaikan booking melalui recovery beralasan setelah verifikasi fisik. |
+| FR-083 | Photobooth-App adapter P1 memicu configured action REST API lokal dan menerima callback Commander terautentikasi pada loopback; hanya event `finished` tervalidasi yang dapat menyelesaikan photo session. |
 
 ## 8. Business Rules
 
@@ -237,7 +239,7 @@ Cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui 
 | BR-001    | Browse tanpa login. Membuat booking wajib login Google.                                                                                                                                                                |
 | BR-002    | Customer hanya dapat mengakses booking miliknya. Admin dapat mengakses semua.                                                                                                                                          |
 | BR-003    | Slot tersedia jika berada dalam jam operasional, tidak overlap dengan blokir, tidak overlap dengan booking aktif, dan memenuhi lead time dan batas hari ke depan. Dihitung di server.                                  |
-| BR-004    | MVP hanya memiliki satu studio dan satu sesi photobooth aktif pada satu waktu; satu booth mock cukup untuk P0. Beberapa booth menjadi P2.                                                                              |
+| BR-004    | MVP hanya memiliki satu studio dan satu booth mock, sehingga maksimal satu sesi photobooth aktif pada satu waktu. Dukungan beberapa booth menjadi P2.                                                                  |
 | BR-005    | Booking baru menahan slot selama `BOOKING_HOLD_MINUTES` (default 15 menit, dapat dikonfigurasi).                                                                                                                       |
 | BR-006    | Satu customer maksimal 2 booking WAITING_PAYMENT aktif, untuk mencegah penyalahgunaan hold.                                                                                                                            |
 | BR-007    | Pembayaran penuh via QRIS. Nominal sama dengan harga package saat booking dibuat.                                                                                                                                      |
@@ -245,13 +247,14 @@ Cloud menyimpan command `START_SESSION`; Local Booth Agent mengambilnya melalui 
 | BR-009    | Booking WAITING_PAYMENT yang lewat `holdExpiresAt` menjadi EXPIRED dan slot kembali tersedia.                                                                                                                          |
 | BR-010    | Customer dapat membatalkan WAITING_PAYMENT kapan saja. Untuk CONFIRMED, pembatalan boleh sampai `CUSTOMER_CANCEL_DEADLINE_HOURS` (default 24 jam) sebelum sesi. Setelah itu hanya admin yang dapat membatalkan.        |
 | BR-011    | Tidak ada automatic refund. Booking CONFIRMED yang dibatalkan dengan payment PAID ditandai perlu refund manual.                                                                                                        |
-| BR-012    | Reschedule hanya oleh admin, hanya untuk CONFIRMED, package dan durasi tetap, dan slot baru harus valid menurut BR-003.                                                                                                |
+| BR-012    | Reschedule hanya oleh admin, hanya untuk CONFIRMED; slot baru memakai sesi 10 menit + jeda 2 menit dan harus valid menurut BR-003.                                                                                      |
 | BR-013    | COMPLETED hanya dari CONFIRMED, setelah photo session COMPLETED dan waktu sesi memenuhi aturan operasional. Manual completion hanya untuk recovery dengan alasan, aktor, dan waktu tercatat. COMPLETED bersifat final. |
 | BR-014    | Package yang sudah punya booking tidak boleh dihapus, hanya dinonaktifkan. Package nonaktif tidak tampil dan tidak bisa dibooking. Booking lama tetap valid.                                                           |
 | BR-015    | Akun admin dibuat lewat seed/script, bukan registrasi publik.                                                                                                                                                          |
 | BR-016    | Waktu disimpan dalam UTC dan ditampilkan dalam Asia/Jakarta.                                                                                                                                                           |
 | BR-017    | Booking CANCELLED dan EXPIRED tidak memblokir slot. WAITING_PAYMENT (belum expired) dan CONFIRMED memblokir slot.                                                                                                      |
 | BR-018    | Perubahan harga package tidak memengaruhi booking yang sudah ada.                                                                                                                                                      |
+| BR-019    | Harga setiap package berada pada rentang Rp20.000–Rp40.000. Booking dan payment menyimpan snapshot harga saat booking dibuat.                                                                                         |
 | BR-PB-001 | Hanya booking CONFIRMED dengan payment PAID yang dapat check-in.                                                                                                                                                       |
 | BR-PB-002 | Booking harus check-in sebelum booth assignment dan photo session dibuat/dimulai.                                                                                                                                      |
 | BR-PB-003 | Photo session hanya dapat dimulai pada booth ONLINE.                                                                                                                                                                   |
@@ -331,46 +334,46 @@ Alur normal: `UNPAID → PENDING → PAID`. Alur lain: `UNPAID/PENDING → FAILE
 
 Priority: **P0** = core MVP, **P1** = penting, **P2** = nice-to-have.
 
-| Feature                                    | User         | Priority | Description                                           |
-| ------------------------------------------ | ------------ | -------- | ----------------------------------------------------- |
-| Landing, Packages, Package Detail          | Guest        | P0       | Halaman publik utama                                  |
-| Studio Information                         | Guest        | P0       | Bagian di landing page                                |
-| Gallery (tampil)                           | Guest        | P0       | Galeri publik                                         |
-| Google OAuth + Logout                      | Customer     | P0       | Login customer                                        |
-| Lihat slot tersedia                        | Customer     | P0       | Kalkulasi server                                      |
-| Create Booking + slot hold                 | Customer     | P0       | Inti sistem                                           |
-| QRIS Payment + tampilan status             | Customer     | P0       | Via payment gateway                                   |
-| Webhook verification + auto confirm        | System       | P0       | Sumber kebenaran payment                              |
-| Expired booking handling                   | System       | P0       | Melepas slot                                          |
-| My Bookings + Booking Detail               | Customer     | P0       | Status dan history                                    |
-| Customer Dashboard                         | Customer     | P0       | Ringkasan upcoming                                    |
-| Cancel booking                             | Customer     | P0       | Sesuai BR-010                                         |
-| Admin Login                                | Admin        | P0       | Credentials                                           |
-| Package CRUD                               | Admin        | P0       | Kelola paket                                          |
-| Operating hours                            | Admin        | P0       | Dasar availability                                    |
-| Booking Management + Detail                | Admin        | P0       | List, filter, detail                                  |
-| Complete Booking                           | Admin        | P0       | Menutup siklus                                        |
-| Cancel Booking (admin)                     | Admin        | P0       | Pengecualian operasional                              |
-| Reschedule                                 | Admin        | P0       | Pindah slot                                           |
-| Schedule block                             | Admin        | P0       | Libur atau maintenance                                |
-| Calendar                                   | Admin        | P0       | Tampilan visual booking                               |
-| Admin Dashboard                            | Admin        | P0       | Ringkasan sederhana                                   |
-| Customer List                              | Admin        | P0       | Daftar customer                                       |
-| Upload gambar package/gallery              | Admin        | P0       | Object storage                                        |
-| Late payment flag (needs review)           | Admin        | P1       | FR-037                                                |
-| Mark REFUNDED manual                       | Admin        | P2       | FR-038                                                |
-| Rate limiting endpoint sensitif            | System       | P1       | Login dan booking                                     |
-| Booth, photo session, dan command          | Admin/System | P0       | Domain provider-agnostic, satu booth mock             |
-| Local Booth Agent + heartbeat              | System       | P0       | Polling HTTPS, device credential, ONLINE/OFFLINE      |
-| MockBoothProvider                          | System       | P0       | Simulasi sukses, gagal, unavailable, delayed          |
-| Check-in, booth assignment, START_SESSION  | Admin        | P0       | Hanya booking CONFIRMED + PAID dan booth tersedia     |
-| Normalized session events dan completion   | System/Admin | P0       | Sesi selesai menentukan booking completion            |
-| Satu real provider                         | Admin/System | P1       | Dipilih berdasarkan integrasi resmi dan kelayakan uji |
-| QR check-in customer                       | Customer     | P1       | Setelah admin check-in stabil                         |
-| Detailed photo session event timeline      | Admin        | P1       | Riwayat operasional lebih lengkap                     |
-| Session retry workflow                     | Admin        | P1       | Setelah recovery manual P0 stabil                     |
-| Customer session status dan photo delivery | Customer     | P2       | Perluasan setelah alur admin P0                       |
-| Multi-booth, multi-branch, multi-provider  | Admin        | P2       | Bukan prasyarat MVP                                   |
+| Feature                                    | User         | Priority | Description                                                  |
+| ------------------------------------------ | ------------ | -------- | ------------------------------------------------------------ |
+| Landing, Packages, Package Detail          | Guest        | P0       | Halaman publik utama                                         |
+| Studio Information                         | Guest        | P0       | Bagian di landing page                                       |
+| Gallery (tampil)                           | Guest        | P0       | Galeri publik                                                |
+| Google OAuth + Logout                      | Customer     | P0       | Login customer                                               |
+| Lihat slot tersedia                        | Customer     | P0       | Kalkulasi server                                             |
+| Create Booking + slot hold                 | Customer     | P0       | Inti sistem                                                  |
+| QRIS Payment + tampilan status             | Customer     | P0       | Via payment gateway                                          |
+| Webhook verification + auto confirm        | System       | P0       | Sumber kebenaran payment                                     |
+| Expired booking handling                   | System       | P0       | Melepas slot                                                 |
+| My Bookings + Booking Detail               | Customer     | P0       | Status dan history                                           |
+| Customer Dashboard                         | Customer     | P0       | Ringkasan upcoming                                           |
+| Cancel booking                             | Customer     | P0       | Sesuai BR-010                                                |
+| Admin Login                                | Admin        | P0       | Credentials                                                  |
+| Package CRUD                               | Admin        | P0       | Kelola paket                                                 |
+| Operating hours                            | Admin        | P0       | Dasar availability                                           |
+| Booking Management + Detail                | Admin        | P0       | List, filter, detail                                         |
+| Complete Booking                           | Admin        | P0       | Menutup siklus                                               |
+| Cancel Booking (admin)                     | Admin        | P0       | Pengecualian operasional                                     |
+| Reschedule                                 | Admin        | P0       | Pindah slot                                                  |
+| Schedule block                             | Admin        | P0       | Libur atau maintenance                                       |
+| Calendar                                   | Admin        | P0       | Tampilan visual booking                                      |
+| Admin Dashboard                            | Admin        | P0       | Ringkasan sederhana                                          |
+| Customer List                              | Admin        | P0       | Daftar customer                                              |
+| Upload gambar package/gallery              | Admin        | P0       | Object storage                                               |
+| Late payment flag (needs review)           | Admin        | P1       | FR-037                                                       |
+| Mark REFUNDED manual                       | Admin        | P2       | FR-038                                                       |
+| Rate limiting endpoint sensitif            | System       | P1       | Login dan booking                                            |
+| Booth, photo session, dan command          | Admin/System | P0       | Domain provider-agnostic, satu booth mock                    |
+| Local Booth Agent + heartbeat              | System       | P0       | Polling HTTPS, device credential, ONLINE/OFFLINE             |
+| MockBoothProvider                          | System       | P0       | Simulasi sukses, gagal, unavailable, delayed                 |
+| Check-in, booth assignment, START_SESSION  | Admin        | P0       | Hanya booking CONFIRMED + PAID dan booth tersedia            |
+| Normalized session events dan completion   | System/Admin | P0       | Sesi selesai menentukan booking completion                   |
+| FreeBooth untuk demo                       | Admin/System | P1       | Operasi sesi manual; tidak mengklaim kontrol/status otomatis |
+| QR check-in customer                       | Customer     | P1       | Setelah admin check-in stabil                                |
+| Detailed photo session event timeline      | Admin        | P1       | Riwayat operasional lebih lengkap                            |
+| Session retry workflow                     | Admin        | P1       | Setelah recovery manual P0 stabil                            |
+| Customer session status dan photo delivery | Customer     | P2       | Perluasan setelah alur admin P0                              |
+| Multi-booth, multi-branch, multi-provider  | Admin        | P2       | Bukan prasyarat MVP                                          |
 
 ## 12. User Stories
 
@@ -389,7 +392,7 @@ Priority: **P0** = core MVP, **P1** = penting, **P2** = nice-to-have.
 
 - [ ] Slot yang sudah dibooking atau ditahan tidak tampil sebagai tersedia.
 - [ ] Slot di luar jam operasional atau yang diblokir tidak tampil.
-- [ ] Slot sudah memperhitungkan durasi package.
+- [ ] Slot menyediakan 10 menit sesi dan jeda 2 menit, berulang setiap 12 menit.
 
 **US-004** Sebagai customer, saya ingin membuat booking untuk slot terpilih, agar slot tersebut diamankan untuk saya.
 
@@ -424,19 +427,19 @@ Priority: **P0** = core MVP, **P1** = penting, **P2** = nice-to-have.
 
 **US-010** Sebagai admin, saya ingin reschedule, cancel, dan complete booking, agar bisa menangani perubahan di lapangan.
 
-- [ ] Reschedule ke slot terisi ditolak dengan pesan konflik.
-- [ ] Booking COMPLETED tidak bisa dibatalkan atau dijadwalkan ulang.
-- [ ] Booking hanya complete setelah photo session selesai, kecuali manual recovery beralasan.
+- [x] Reschedule ke slot terisi ditolak dengan pesan konflik.
+- [x] Booking COMPLETED tidak bisa dibatalkan atau dijadwalkan ulang.
+- [x] Booking hanya complete setelah photo session selesai, kecuali manual recovery beralasan.
 
 **US-011** Sebagai admin, saya ingin check-in customer dan memilih booth yang siap, agar sesi photobooth terhubung ke booking yang sudah dibayar.
 
-- [ ] Check-in ditolak untuk booking yang belum CONFIRMED/PAID atau tidak berada pada jadwalnya.
-- [ ] Booth offline, busy, atau maintenance tidak dapat di-assign.
+- [x] Check-in ditolak untuk booking yang belum CONFIRMED/PAID atau tidak berada pada jadwalnya.
+- [x] Booth offline, busy, atau maintenance tidak dapat di-assign.
 
 **US-012** Sebagai admin, saya ingin memulai dan memantau sesi photobooth dari booking, agar hasil sesi tercatat dengan benar.
 
-- [ ] START_SESSION dikirim melalui agent dan mock provider pada P0.
-- [ ] Booking tidak selesai hanya karena command terkirim; event completion yang dinormalisasi menyelesaikan sesi.
+- [x] START_SESSION dikirim melalui agent dan mock provider pada P0.
+- [x] Booking tidak selesai hanya karena command terkirim; event completion yang dinormalisasi menyelesaikan sesi.
 
 ## 13. Edge Cases
 

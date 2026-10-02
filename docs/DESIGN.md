@@ -129,8 +129,8 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 ### `packages`
 
 - **Purpose:** katalog paket foto.
-- **Fields:** `id`, `slug` (unique), `name`, `description`, `price` (int), `durationMinutes`, `bufferMinutes` (default 0), `coverImageUrl`, `isActive`, `sortOrder`, `createdAt`, `updatedAt`.
-- **Constraints:** `price >= 0`, `durationMinutes > 0`.
+- **Fields:** `id`, `slug` (unique), `name`, `description`, `price` (int), `durationMinutes` (fixed 10), `bufferMinutes` (fixed 2), `coverImageUrl`, `isActive`, `sortOrder`, `createdAt`, `updatedAt`.
+- **Constraints:** database menolak `price < 0` dan durasi tidak positif. Mutation admin menerapkan harga Rp20.000–Rp40.000 serta durasi/jeda tetap 10/2 menit.
 - **Index:** `slug` (unique), `(isActive, sortOrder)`.
 
 ### `bookings`
@@ -144,7 +144,8 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 ### `payments`
 
 - **Purpose:** satu payment per booking (MVP, 1:1).
-- **Fields:** `id`, `bookingId` (unique), `provider`, `providerOrderId` (unique), `providerTransactionId`, `amount`, `status`, `qrString`/`qrImageUrl`, `expiresAt`, `paidAt`, `needsReview` (bool), `createdAt`, `updatedAt`.
+- **Fields:** `id`, `bookingId` (unique), `provider`, `providerOrderId` (unique), `providerTransactionId`, `amount`, `status`, `qrString`/`qrImageUrl`, `expiresAt`, `paidAt`, `needsReview` (bool), `refundedAt`, `refundReason`, `refundedByAdminId`, `createdAt`, `updatedAt`.
+- Refund manual hanya dicatat admin setelah dana benar-benar dikembalikan di luar aplikasi. Transisi bersyarat `PAID → REFUNDED` hanya untuk booking `CANCELLED`; alasan, aktor, dan waktu disimpan serta dilindungi foreign key dan CHECK constraint.
 - **Constraints:** `amount` harus sama dengan `priceSnapshot`.
 - **Index:** `providerOrderId` (unique), `bookingId` (unique), `status`.
 
@@ -337,13 +338,13 @@ erDiagram
 
 ## 9. Booking Design
 
-**Konfigurasi default** (semua dapat diubah lewat environment variable): `SLOT_INTERVAL_MINUTES=30`, `BOOKING_HOLD_MINUTES=15`, `MIN_LEAD_HOURS=2`, `MAX_ADVANCE_DAYS=60`, `CUSTOMER_CANCEL_DEADLINE_HOURS=24`, `MAX_ACTIVE_HOLDS_PER_USER=2`, `STUDIO_TIMEZONE=Asia/Jakarta`.
+**Aturan slot tetap:** sesi 10 menit, jeda 2 menit, dan awal slot berjarak 12 menit dari jam buka. Konfigurasi lain: `BOOKING_HOLD_MINUTES=15`, `MIN_LEAD_HOURS=2`, `MAX_ADVANCE_DAYS=60`, `CUSTOMER_CANCEL_DEADLINE_HOURS=24`, `MAX_ACTIVE_HOLDS_PER_USER=2`, `STUDIO_TIMEZONE=Asia/Jakarta`.
 
 **Kalkulasi availability** (`availability` module), untuk `packageId` dan `date`:
 
 1. Ambil jam operasional untuk hari tersebut (timezone studio). Jika tutup, hasilnya kosong.
-2. Buat kandidat `startAt` setiap `SLOT_INTERVAL_MINUTES` dari jam buka.
-3. Untuk tiap kandidat: `endAt = startAt + durationMinutes + bufferMinutes`. Kandidat valid jika `endAt <= jam tutup`.
+2. Buat kandidat `startAt` setiap 12 menit dari jam buka.
+3. Untuk tiap kandidat: `endAt = startAt + 10 menit sesi + 2 menit jeda`. Kandidat valid jika `endAt <= jam tutup`.
 4. Buang kandidat yang lebih awal dari `now + MIN_LEAD_HOURS` atau lebih jauh dari `MAX_ADVANCE_DAYS`.
 5. Buang kandidat yang overlap dengan `schedule_blocks`.
 6. Buang kandidat yang overlap dengan booking aktif: `CONFIRMED`, atau `WAITING_PAYMENT` dengan `holdExpiresAt > now`.
@@ -449,7 +450,7 @@ Urutan dalam transaction pembuatan booking:
 **Strategi expiry (dua lapis):**
 
 1. **Lazy expiry (utama).** Availability hanya menghitung WAITING_PAYMENT dengan `holdExpiresAt > now`. Transaksi pembuatan booking selalu menjalankan sweep terlebih dahulu. Halaman detail booking juga menampilkan status yang sudah dikoreksi. Cara ini benar tanpa bergantung pada scheduler.
-2. **Cron sweep (pendukung).** Route `GET /api/cron/expire-bookings` (dilindungi `CRON_SECRET`) menandai booking expired secara batch agar data tetap rapi. Perlu dicatat, Vercel Cron pada paket Hobby dibatasi frekuensinya, sehingga sistem tidak boleh bergantung pada cron per menit. Alternatif: `pg_cron` di Supabase atau cron eksternal gratis.
+2. **Cron sweep (pendukung).** Route `GET /api/cron/expire-bookings` (dilindungi `CRON_SECRET`) menandai booking expired secara batch agar data tetap rapi. `vercel.json` menjadwalkannya setiap hari pukul 00:00 UTC agar kompatibel dengan batas Vercel Hobby. Sistem tidak bergantung pada jadwal ini untuk melepas slot: lazy expiry tetap berlaku ketika booking/availability dibaca.
 
 **Race antara expiry dan webhook:** sweep dan konfirmasi webhook sama-sama meng-update dengan kondisi `WHERE status = 'WAITING_PAYMENT'` dan mengunci baris payment/booking. Siapa yang commit lebih dulu menang. Jika webhook PAID tiba saat booking masih WAITING_PAYMENT (walau `holdExpiresAt` baru saja lewat), booking tetap dikonfirmasi karena slot belum dilepas. Jika sudah EXPIRED, payment ditandai `needsReview`.
 
@@ -547,7 +548,7 @@ Konvensi: **Server Action (SA)** untuk mutasi dari UI, **Server Component query 
 | `assignBooth`                                 | SA                  | Admin | `bookingId`, `boothId`                         | Photo session READY                                         | booking checked-in; booth ONLINE; no active session; DB constraint                                        | NotFound, Conflict, InvalidState      |
 | `startPhotoSession`                           | SA                  | Admin | `photoSessionId`                               | Command PENDING + session STARTING                          | session READY; booking CONFIRMED + PAID; booth ONLINE; no active command                                  | NotFound, Conflict, InvalidState      |
 | `completeBookingManually`                     | SA                  | Admin | `bookingId`, `reason`                          | Booking COMPLETED                                           | only recovery; record actor/reason; verify session has actually ended and record manual completion source | InvalidState, RuleViolation           |
-| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga ≥ 0, durasi > 0, slug unik)                                                                    | Validation, Conflict (slug)           |
+| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga ≥ 0, durasi/jeda ditetapkan sistem, slug unik)                                                 | Validation, Conflict (slug)           |
 | `togglePackageActive`                         | SA                  | Admin | `packageId`, `isActive`                        | Package                                                     | -                                                                                                         | NotFound                              |
 | `deletePackage`                               | SA                  | Admin | `packageId`                                    | OK                                                          | tidak punya booking                                                                                       | RuleViolation                         |
 | `upsertOperatingHours`                        | SA                  | Admin | 7 hari (`isOpen`, `openTime`, `closeTime`)     | OK                                                          | open < close, format HH:mm                                                                                | Validation                            |
@@ -555,7 +556,9 @@ Konvensi: **Server Action (SA)** untuk mutasi dari UI, **Server Component query 
 | `listCustomers`                               | SC                  | Admin | pencarian, halaman                             | Daftar customer                                             | -                                                                                                         | Auth                                  |
 | `getUploadUrl`                                | SA                  | Admin | `fileName`, `contentType`, `size`              | Presigned URL                                               | tipe dan ukuran diizinkan                                                                                 | Validation                            |
 | `saveGalleryImage` / `deleteGalleryImage`     | SA                  | Admin | metadata gambar                                | OK                                                          | key dari storage milik kita                                                                               | Validation                            |
-| `markPaymentRefunded` (P2)                    | SA                  | Admin | `paymentId`                                    | Payment                                                     | status PAID, booking CANCELLED                                                                            | InvalidState                          |
+| `markPaymentRefunded` (P2)                    | SA                  | Admin | `paymentId`, `reason`                          | Payment                                                     | status PAID, booking CANCELLED; audit actor/time/reason                                                   | InvalidState                          |
+
+Dashboard admin mengambil seluruh hitungan status dari satu agregasi booking, daftar sesi dibatasi delapan baris dan memakai batas hari lokal `STUDIO_TIMEZONE`, serta revenue menjumlahkan payment `PAID` berdasarkan `paidAt` dalam bulan lokal berjalan. Perlu perhatian mencakup payment `needsReview` dan booking `CANCELLED` yang sudah `PAID`; query tetap hanya dijalankan setelah `requireAdmin`.
 
 ### Payment Webhook dan System
 
@@ -626,13 +629,15 @@ Check-in, assignment, start session, dan recovery berada pada booking detail adm
 ## 17. Main Screen Requirements
 
 - **Landing Page:** hero dengan CTA, ringkasan package unggulan, cuplikan gallery, info studio (alamat, jam buka, kontak), CTA booking.
-- **Package Detail:** nama, harga, durasi, deskripsi, foto, CTA "Pilih Jadwal".
+- **Package Detail:** nama, harga, sesi 10 menit, jeda 2 menit, deskripsi, foto, CTA "Pilih Jadwal".
 - **Booking Page:** pilih tanggal, daftar slot (ditandai tersedia atau tidak), ringkasan package dan harga, catatan opsional, tombol konfirmasi. State: loading slot, kosong ("tidak ada slot"), error konflik.
 - **Payment (di Booking Detail):** QR, nominal, countdown hold, status (menunggu, sukses, gagal, kedaluwarsa), tombol "buat ulang QRIS" jika gagal dibuat, tombol batalkan.
 - **Customer Dashboard:** upcoming booking terdekat dengan status, tombol booking baru, link ke history.
 - **Admin Dashboard:** kartu ringkasan (booking per status, sesi hari ini dan mendatang, pendapatan sederhana), daftar sesi terdekat.
 - **Booking Management:** tabel dengan filter status, tanggal, pencarian, badge status booking dan payment, indikator "perlu review" dan "perlu refund".
 - **Photobooth:** status booth berasal dari maintenance flag, heartbeat, dan sesi aktif. Booking detail menampilkan check-in, assignment, command/session state, normalized event timeline ringkas, serta tindakan recovery admin.
+- Check-in, assignment, dan start hanya tersedia pada rentang sesi `[startAt, startAt + 10 menit)`. Booking menahan slot penuh `[startAt, endAt)` selama 12 menit agar jeda 2 menit terlindungi. Waktu dibandingkan sebagai UTC.
+- P0 provisioning membatasi satu booth mock untuk satu studio. Batas ini membuat aturan satu active session studio terpenuhi; dukungan multi-booth ditunda ke P2.
 - **Calendar:** tampilan minggu atau bulan berisi booking (warna per status), klik membuka detail booking. Tampilan sederhana tanpa drag-and-drop.
 
 ## 18. Responsive Design
@@ -652,10 +657,12 @@ Check-in, assignment, start session, dan recovery berada pada booking detail adm
 - **IDOR:** filter `userId` dari session pada semua query customer, respon 404 untuk resource orang lain.
 - **Webhook:** signature verification, cek amount, idempotency (bagian 13), payload mentah tidak dipercaya untuk status di luar mapping.
 - **Environment variables:** secret hanya di environment (Vercel), tidak di repository. `.env*` di-ignore. Variabel client-side (`NEXT_PUBLIC_*`) tidak boleh berisi secret.
-- **Database permissions:** aplikasi memakai satu role database dengan hak minimum yang dibutuhkan. Koneksi memakai SSL. Jangan mengekspos database langsung ke client. Jika memakai Supabase, jangan memakai _service role key_ di sisi client, dan aktifkan RLS bila tabel bisa diakses lewat API Supabase.
+- **Database permissions:** pisahkan role runtime dan role migration. `DATABASE_URL` memakai role runtime yang hanya mendapat koneksi, `USAGE` pada schema aplikasi, serta `SELECT`/`INSERT`/`UPDATE`/`DELETE` pada tabel yang dipakai aplikasi; jangan beri `SUPERUSER`, `CREATEDB`, `CREATEROLE`, `CREATE` pada schema, atau kepemilikan objek. Beri hak sequence hanya bila schema aktual memerlukannya. `DIRECT_URL` dipakai Prisma CLI untuk migration dan memakai role migration yang boleh mengubah schema; secret/URL itu tidak boleh dikirim ke browser. Atur default privileges agar tabel baru yang dibuat role migration memberikan hak DML minimum ke role runtime. Remote database wajib TLS (`sslmode=require` atau mekanisme TLS provider). Jangan mengekspos database langsung ke client. Jika memakai Supabase, jangan memakai _service role key_ di sisi client, dan aktifkan RLS bila tabel bisa diakses lewat API Supabase. Verifikasi role, grant, TLS, dan migration pada database environment setelah provision; role `postgres` lokal untuk development bukan bukti least privilege production.
 - **Upload validation:** upload lewat presigned URL dengan batas tipe (jpeg/png/webp) dan ukuran. Nama file di-generate server. Hanya admin yang dapat meminta URL upload. Cek ulang `contentType` dan `size` saat menyimpan metadata.
 - **Rate limiting:** pada login admin, pembuatan booking, dan pembuatan QRIS. Karena serverless tidak berbagi memori, gunakan rate limit rules di Vercel Firewall atau penghitung sederhana berbasis database. Tidak memakai infrastruktur tambahan dulu. Webhook tidak dibatasi agresif.
 - Implementasi login admin saat ini memakai penghitung database `admin_login_attempts`; baris yang tidak diperbarui selama 24 jam dibersihkan saat ada kegagalan login baru.
+- `createBooking` dibatasi 10 request per customer per 60 detik dan `createPayment` 5 per customer per 15 menit menggunakan upsert atomik pada tabel `rate_limit_buckets`; key disimpan sebagai SHA-256. Ini membatasi aksi per akun, bukan mitigasi volumetric abuse per IP.
+- Security headers ditetapkan di Next config: `nosniff`, frame deny, strict referrer, dan pembatasan browser capability; HSTS aktif hanya pada production.
 - **Header dan lainnya:** security header standar Next.js, cookie `httpOnly`, `secure`, `sameSite=lax`, dan query lewat Prisma (parameterized). Bila memakai `$queryRaw`, wajib memakai tagged template, bukan string concatenation.
 
 ## 20. Infrastructure
@@ -671,7 +678,7 @@ flowchart LR
     CR[Cron - Vercel Cron / pg_cron] --> V
 ```
 
-Object storage bisa Supabase Storage atau layanan S3-compatible lain. Upload memakai presigned URL agar file tidak melewati batas ukuran request serverless.
+Object storage memakai API S3-compatible dari endpoint yang dikonfigurasi; adapter AWS SDK v3 membuat presigned PUT 60 detik. Bucket harus mengizinkan PUT dari origin `APP_URL` dengan header `Content-Type` dan menyediakan public read pada `STORAGE_PUBLIC_URL`. File hanya JPEG/PNG/WebP dan maksimal 10 MiB. Object key UUID dibuat server; saat metadata akan disimpan, server memeriksa HEAD (ukuran dan MIME) serta magic bytes sebelum mencatat URL. Image baru menjadi draft dan harus dipublikasikan admin.
 
 ## 21. Environments
 
@@ -691,6 +698,8 @@ Hanya nama, tanpa nilai.
 # App
 APP_URL
 STUDIO_TIMEZONE
+STUDIO_ADDRESS (optional public studio address)
+STUDIO_CONTACT (optional public contact text)
 NODE_ENV
 
 # Database
@@ -718,7 +727,6 @@ STORAGE_PUBLIC_URL
 
 # Booking config
 BOOKING_HOLD_MINUTES
-SLOT_INTERVAL_MINUTES
 MIN_LEAD_HOURS
 MAX_ADVANCE_DAYS
 CUSTOMER_CANCEL_DEADLINE_HOURS
@@ -731,6 +739,14 @@ CRON_SECRET
 ADMIN_SEED_EMAIL
 ADMIN_SEED_PASSWORD
 ```
+
+`DATABASE_URL` adalah koneksi runtime aplikasi. `DIRECT_URL` adalah koneksi
+langsung yang digunakan Prisma CLI untuk migration/introspection saat runtime
+menggunakan pooler, sesuai [dokumentasi Prisma ORM v6](https://www.prisma.io/docs/orm/v6/prisma-client/setup-and-configuration/databases-connections);
+pada managed database keduanya dapat memakai host dan credential berbeda. Di production,
+buat role runtime terpisah dari role migration dan batasi role runtime pada
+operasi DML di schema aplikasi. Jangan menjalankan aplikasi dengan user
+`postgres`/owner hanya karena role itu dipakai pada development.
 
 ## 23. Logging & Observability
 
@@ -791,6 +807,19 @@ Decision: PostgreSQL exclusion constraint pada `tstzrange(startAt, endAt)` untuk
 Reason: Jaminan di level database yang benar di bawah concurrency, tanpa infrastruktur tambahan.
 Trade-off: Butuh custom SQL migration, spesifik PostgreSQL, dan sweep expiry wajib dijalankan sebelum insert.
 Alternative: Tabel slot dengan unique index, advisory lock, atau serializable isolation.
+
+### ADR-006 — Prisma `deepmerge-ts` Security Override
+
+Decision: Pin transitive `deepmerge-ts` melalui npm `overrides` ke `^8.0.1` selama Prisma 6.19.3 masih meminta versi 7.1.5.
+Reason: Semua versi sebelum 8.0.0 memiliki stack-exhaustion advisory GHSA-ggr8-5vv4-36mx. Prisma config memakai fungsi `deepmerge` sebagai merger konfigurasi C12; panggilan itu kompatibel dan `prisma generate`, migration, test, serta build diuji setelah override. [Advisory](https://github.com/advisories/GHSA-ggr8-5vv4-36mx), [issue Prisma](https://github.com/prisma/prisma/issues/30052).
+Trade-off: Override lintas major perlu ditinjau kembali saat Prisma diperbarui, karena perilaku merge Map berubah pada deepmerge-ts 8.0.
+Removal condition: Hapus override setelah `@prisma/config` meminta versi `deepmerge-ts` yang telah diperbaiki secara langsung.
+
+### ADR-007 — Test Tooling Security Update
+
+Decision: Gunakan Vitest 4.1.11 dan Vite 7 pada development tooling.
+Reason: Menutup GHSA-82fw-gwwq-j7x9 pada `@vitest/mocker` versi sebelum 4.1.11. Vite 7 adalah peer dependency wajib Vitest 4; Node 24 project memenuhi minimum resmi. Semua unit, integration, dan E2E tests dijalankan kembali setelah upgrade. [Advisory](https://github.com/advisories/GHSA-82fw-gwwq-j7x9), [Vitest migration guide](https://vitest.dev/guide/migration.html).
+Trade-off: Major update test runner; jangan gunakan opsi/API Vitest yang deprecated tanpa memeriksa migration guide.
 
 ## 26. Photobooth Integration Architecture
 
@@ -858,14 +887,20 @@ Implementasi awal mock menggunakan polling `getStatus()` (`supportsSessionEvents
 
 P0 mengecek `supportsStartSession` sebelum command dibuat/dijalankan. `supportsSessionEvents` menentukan apakah adapter mengirim event atau harus memakai `getStatus` fallback yang terdokumentasi. Capability false berarti unsupported dan UI memberi pesan. Optional `supportsStopSession`/`supportsReprint` hanya digunakan jika true; tidak menambah API core sebelum task membutuhkannya.
 
+Adapter `freebooth` hanya mendukung workflow manual. Dokumentasi FreeBooth menjelaskan operator menjalankan aplikasi lokal dan aplikasi tethering menyalin foto ke folder gambar; tidak ada remote start API atau status/event sesi resmi yang dapat dipakai agent. Karena itu semua capability remote bernilai false dan `getStatus()` menjawab `UNAVAILABLE`. Agent tetap dapat mengirim heartbeat, dan route event menolak normalized event untuk sesi FreeBooth. Admin menjalankan FreeBooth dahulu, lalu memakai aksi khusus yang mengubah sesi `READY → ACTIVE` tanpa membuat booth command. Setelah memeriksa sesi fisik selesai, admin memakai manual recovery yang sudah ada; alasan, admin, waktu, dan `completionSource = MANUAL_RECOVERY` tersimpan. Aksi manual tetap memvalidasi booking CONFIRMED + PAID, check-in, jendela jadwal, heartbeat, maintenance, dan reservasi sesi aktif. Tidak ada status completion otomatis atau klaim bahwa FreeBooth menerima command cloud.
+
+Admin boleh mengganti provider booth antara `mock`, `freebooth`, dan `photobooth_app` hanya saat tidak ada photo session aktif maupun command PENDING/PROCESSING. Sesi lama menyimpan `providerKey` snapshot. Setelah mengganti provider, konfigurasi `BOOTH_PROVIDER_KEY` pada agent lokal harus disamakan dan proses agent direstart.
+
 ### Command Flow
 
-1. Admin server action memvalidasi session admin, booking CONFIRMED + PAID, check-in, booth online, dan state session.
+1. Admin server action memvalidasi session admin, booking CONFIRMED + PAID, check-in, jendela jadwal, heartbeat booth segar, maintenance off, dan state session. READY yang sedang di-start adalah reservasi untuk sesi itu sendiri; sesi aktif lain tetap ditolak.
 2. Satu transaction membuat/mengubah session `READY → STARTING` dan membuat `START_SESSION` `PENDING` dengan idempotency key stabil (satu command per photo session). Unique constraint menjaga double-click/request paralel.
 3. Agent polling mengklaim command secara atomic menjadi `PROCESSING`; transaction commit sebelum adapter/hardware dipanggil.
 4. Adapter menjalankan `startSession()` dengan key yang sama. Command `SUCCESS` berarti adapter menerima/memulai operasi command sesuai kontrak, bukan photo session selesai.
 5. `SESSION_STARTED` normalized event yang memindahkan session `STARTING → ACTIVE`. Completion/failure hanya berasal dari event/status valid.
 6. Sebelum command dieksekusi, cloud/agent memeriksa ulang command belum terminal dan booking tetap eligible; command PENDING untuk booking cancelled tidak dijalankan.
+
+Untuk `providerKey = freebooth`, langkah command di atas diganti workflow operator: setelah validasi yang sama, aksi admin mencatat `READY → ACTIVE` dalam transaction tanpa command. Admin harus menjalankan FreeBooth secara lokal sebelum menekan aksi tersebut. Hanya verifikasi admin terhadap sesi fisik yang mengizinkan manual recovery menyelesaikan booking.
 
 Delivery diperlakukan at-least-once, bukan exactly-once. Cloud command unik dan agent/provider menerima key stabil. Provider adapter wajib deduplikasi jika mekanisme provider memungkinkan. Jika agent restart membuat hasil provider tidak pasti atau provider tidak punya idempotency, jangan auto-retry side effect: tandai untuk rekonsiliasi admin. Ini menghindari fake assurance bahwa setiap vendor dapat menjamin exactly-once.
 
@@ -883,6 +918,7 @@ Agent mengirim heartbeat pada setiap polling (interval configurable; default P0 
 stateDiagram-v2
     [*] --> READY: admin assign booth setelah check-in
     READY --> STARTING: command START_SESSION dibuat
+    READY --> ACTIVE: admin mengonfirmasi FreeBooth lokal sudah dimulai
     STARTING --> ACTIVE: SESSION_STARTED
     STARTING --> FAILED: SESSION_FAILED
     ACTIVE --> PROCESSING: PROCESSING_STARTED (opsional)
@@ -918,6 +954,7 @@ Booth presence diproyeksikan dari maintenance, heartbeat, dan active session: fr
 | Provider gagal                      | Command FAILED dan session FAILED/needs recovery; booking tetap belum COMPLETED.                                                                     |
 | Event completion duplikat           | Unique event inbox dan transition bersyarat membuatnya no-op.                                                                                        |
 | Agent restart                       | Re-authenticate, heartbeat, lanjut polling. PROCESSING tanpa hasil pasti tidak otomatis dijalankan ulang.                                            |
+| PROCESSING/STARTING tidak berubah   | Tampilkan command dan session pada detail booking, instruksikan pemeriksaan manual. Jangan retry command karena provider mungkin sudah memulai sesi. |
 | Cloud sementara unavailable         | Agent tidak membuat fake success; retry network dengan event ID stabil. P0 tidak menjanjikan durable offline queue untuk event yang belum tersimpan. |
 | Booking cancel saat command PENDING | Cloud membatalkan/menolak command sebelum eksekusi setelah validasi ulang booking.                                                                   |
 | Provider tanpa completion event     | Capability unsupported atau fallback polling/status resmi didokumentasikan; jika hasil tetap tidak diketahui, manual recovery.                       |
@@ -936,7 +973,7 @@ Expected operational errors menjadi hasil terstruktur (`OFFLINE`, `BUSY`, `UNSUP
 
 ### Real Provider Integration Strategy
 
-Real provider adalah P1, bukan syarat P0. Setelah mock flow stabil, bandingkan calon provider berdasarkan mekanisme integrasi resmi, dokumentasi, external session control, session result/event, biaya, serta kecocokan agent lokal. Sebelum implementasi, verifikasi dokumentasi terbaru vendor. Provider-specific code hanya di adapter. Catat capability yang unsupported. Bila provider tidak dapat memberi event completion, gunakan status API resmi bila tersedia; bila tidak, sesi memerlukan tindakan/recovery admin dan tidak boleh diselesaikan otomatis.
+Real provider adalah P1, bukan syarat P0. Photobooth-App adapter memakai `GET /api/actions/{action_type}/{index}` yang didokumentasikan di source resminya. Agent membuka callback HTTP loopback dan Commander mengirim event `counting`/`capture`/`finished` ke sana dengan token lokal. Callback hanya bisa masuk dari loopback, lalu status ditransformasikan ke normalized event dan dikirim lewat endpoint agent cloud yang sudah ada. HTTP 2xx dari action API hanya berarti request diterima; completion hanya berasal dari callback `finished`. Jika Commander tidak dikonfigurasi atau callback tidak tiba, sesi memerlukan tindakan/recovery admin dan tidak boleh diselesaikan otomatis. Stop/reprint unsupported. Jangan mengekspos API booth/callback ke internet. FreeBooth tetap provider manual-only.
 
 ## 27. Photobooth Environment Variables
 
@@ -952,6 +989,8 @@ BOOTH_PROVIDER_KEY=mock
 ```
 
 `BOOTH_DEVICE_TOKEN` hanya untuk komputer agent, bukan cloud client bundle. Config provider khusus real adapter disimpan pada host agent/secret store. P0 tidak membutuhkan credential provider eksternal.
+
+Untuk Photobooth-App, agent juga membaca `BOOTH_PHOTOBOOTH_APP_URL`, `BOOTH_PHOTOBOOTH_APP_ACTION`, `BOOTH_PHOTOBOOTH_APP_ACTION_INDEX`, `BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN`, dan `BOOTH_PHOTOBOOTH_APP_CALLBACK_PORT`. URL wajib loopback; callback server bind hanya ke `127.0.0.1`. Commander perlu mengirim `counting`, `capture`, dan `finished` ke callback yang dijelaskan di `docs/PHOTOBOOTH-APP.md`.
 
 ## 28. Photobooth Testing
 

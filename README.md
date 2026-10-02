@@ -3,12 +3,19 @@
 Aplikasi booking dan manajemen untuk satu studio foto. Product requirements,
 technical design, dan roadmap ada di [`docs/`](docs/).
 
+## Pratinjau
+
+![Screenshot homepage Fotiu dari environment lokal](docs/assets/fotiu-homepage-local.png)
+
+Ini screenshot lokal dengan data seed development; belum merupakan demo
+production.
+
 ## Menjalankan secara lokal
 
-1. Gunakan Node.js 20.19+ atau 22.12+.
+1. Gunakan Node.js 20.19+ atau 22.12+ (CI berjalan dengan Node.js 24).
 2. Salin `.env.example` menjadi `.env`.
 3. Jalankan `docker compose up -d` untuk menyalakan PostgreSQL lokal.
-4. Jalankan `npm install`, `npm run db:migrate`, lalu `npm run dev`.
+4. Jalankan `npm ci`, `npm run db:migrate`, `npm run db:seed`, lalu `npm run dev`.
 
 Set `ADMIN_SEED_EMAIL` dan `ADMIN_SEED_PASSWORD` di `.env` sebelum menjalankan
 `npm run db:seed`. Seed memakai bcrypt dengan cost 12.
@@ -26,15 +33,69 @@ Jika volume sudah ada sebelum konfigurasi ini, buat sekali dengan
 `npm run test:integration`. Test ini menjalankan migration pada database test
 sebelum menguji constraint.
 
-Perintah pemeriksaan: `npm run lint`, `npm run typecheck`, dan `npm test`.
+Perintah pemeriksaan:
+
+```sh
+npm run lint
+npm run typecheck
+npm run test
+npm run test:integration
+npm run test:e2e
+```
+
+`test:integration` dan `test:e2e` hanya memakai database bernama `fotiu_test`.
+E2E menjalankan migration dan seed, membuat production build lokal, lalu
+memeriksa alur customer, webhook lokal bertanda tangan, alur admin/photo
+session, header keamanan, dan tiga halaman publik pada viewport HP. Untuk
+mempercepat iterasi lokal setelah build tersedia, jalankan
+`$env:E2E_SKIP_BUILD="1"; npm run test:e2e` di PowerShell. CI menjalankan build
+E2E penuh. Workflow CI ada di `.github/workflows/ci.yml`.
 
 Untuk transaksi QRIS sandbox, isi `MIDTRANS_SERVER_KEY` dan pastikan
-`MIDTRANS_ENVIRONMENT="sandbox"`. Endpoint notifikasi Midtrans adalah
-`/api/webhooks/payment`. Saat development lokal tanpa tunnel, settlement dapat
-disimulasikan untuk booking berstatus `WAITING_PAYMENT` dengan
-`npm run payment:simulate -- <booking-code>`. Script ini menolak berjalan jika
-APP_URL atau database bukan localhost.
+`MIDTRANS_ENVIRONMENT="sandbox"`. Di detail booking, aplikasi menampilkan
+URL gambar QR dan tautan QRIS Simulator Midtrans. Masukkan URL gambar QR ke
+[simulator sandbox](https://simulator.sandbox.midtrans.com/openapi/qris/index)
+untuk mensimulasikan pembayaran; ikuti [panduan resmi sandbox](https://docs.midtrans.com/docs/testing-payment-on-sandbox).
+Jangan membayar QR sandbox memakai aplikasi bank atau e-wallet sungguhan.
+Midtrans memperingatkan dana dapat masuk ke tujuan yang tidak dapat dipulihkan.
+
+Untuk konfirmasi otomatis, URL notifikasi Midtrans harus dapat dijangkau dari
+internet pada `/api/webhooks/payment`; alamat `localhost` saja tidak dapat
+menerima notifikasi dari provider. Saat hanya menguji handler webhook secara
+lokal tanpa notifikasi provider, gunakan script berikut untuk membuat payload
+settlement bertanda tangan:
+
+```sh
+npm run payment:simulate -- <booking-code>
+```
+
+Script tersebut menolak berjalan jika APP_URL atau database bukan localhost.
+Payload sintetis menguji handler aplikasi, tetapi bukan bukti settlement telah
+terjadi pada Midtrans.
 
 Compose hanya menjalankan satu database PostgreSQL untuk development lokal.
 Project managed Supabase belum dikonfigurasi; gunakan database terpisah untuk
 preview dan production, jangan memakai data production secara lokal.
+
+## Gallery storage
+
+Upload admin menggunakan presigned PUT ke object storage S3-compatible. Atur
+semua `STORAGE_*` di `.env` (lihat `.env.example`), izinkan origin `APP_URL`
+untuk PUT dengan header `Content-Type` pada CORS bucket, dan pastikan objek
+dapat dibaca melalui `STORAGE_PUBLIC_URL`. Tanpa konfigurasi ini, UI memberi
+tahu bahwa upload belum tersedia. Batas upload 10 MiB; tipe yang diterima
+JPEG, PNG, dan WebP.
+
+## Demo booth FreeBooth
+
+FreeBooth berjalan di komputer studio dengan operator manual; agent Fotiu hanya
+mengirim heartbeat dan tidak mengontrol sesi atau menebak status completion.
+Ikuti [panduan demo FreeBooth](docs/FREEBOOTH-DEMO.md) untuk provisioning,
+pengaturan agent, dan alur booking.
+
+## Status deployment
+
+Belum ada URL demo production karena project database managed, konfigurasi
+OAuth/payment/storage produksi, domain, dan deployment Vercel belum tersedia.
+Screenshot di atas hanya pratinjau lokal. Jangan memakai kredensial lokal untuk
+deployment.

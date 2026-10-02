@@ -6,6 +6,11 @@ import { prisma } from "@/lib/prisma";
 import { transitionBooking } from "@/modules/booking/state-machine";
 import { calculateAvailability } from "@/modules/scheduling/availability";
 import {
+  PHOTO_SESSION_BUFFER_MINUTES,
+  PHOTO_SESSION_DURATION_MINUTES,
+  PHOTO_SESSION_SLOT_INTERVAL_MINUTES,
+} from "@/modules/scheduling/session-duration";
+import {
   localDayBoundsUtc,
   getLocalDate,
   weekdayForLocalDate,
@@ -52,6 +57,30 @@ export async function cancelBookingAsAdmin(
       );
       if (!changed)
         return { ok: false as const, code: "INVALID_STATE" as const };
+      const readySessions = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "photo_sessions"
+        WHERE "bookingId" = ${bookingId} AND "status" = 'READY'
+        FOR UPDATE
+      `;
+      for (const session of readySessions) {
+        await tx.$executeRaw`
+          UPDATE "photo_sessions"
+          SET "status" = 'FAILED', "failedAt" = ${now}, "updatedAt" = ${now}
+          WHERE "id" = ${session.id} AND "status" = 'READY'
+        `;
+        await tx.$executeRaw`
+          UPDATE "booth_commands"
+          SET "status" = 'FAILED', "failedAt" = ${now},
+            "errorMessage" = 'Booking cancelled before session start'
+          WHERE "photoSessionId" = ${session.id} AND "status" = 'PENDING'
+        `;
+      }
+      const runningSessions = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "photo_sessions"
+        WHERE "bookingId" = ${bookingId}
+          AND "status" IN ('STARTING', 'ACTIVE', 'PROCESSING')
+        LIMIT 1
+      `;
       if (current.status === "WAITING_PAYMENT") {
         await tx.payment.updateMany({
           where: { bookingId, status: { in: ["UNPAID", "PENDING"] } },
@@ -67,6 +96,7 @@ export async function cancelBookingAsAdmin(
           current.payment.qrImageUrl
             ? current.payment.providerOrderId
             : null,
+        sessionStillActive: runningSessions.length > 0,
       };
     },
     { maxWait: 15_000, timeout: 15_000 },
@@ -87,17 +117,20 @@ export async function cancelBookingAsAdmin(
     ok: true as const,
     needsRefund: outcome.needsRefund,
     providerCancelFailed,
+    sessionStillActive: outcome.sessionStillActive,
   };
 }
 
 function isBookingOverlapError(error: unknown) {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  const meta = error.meta ? JSON.stringify(error.meta) : "";
-  return (
-    (error.code === "P2010" && meta.includes("23P01")) ||
-    (error.code === "P2004" && meta.includes("bookings_no_overlap")) ||
-    error.message.includes("bookings_no_overlap")
-  );
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    const meta = error.meta ? JSON.stringify(error.meta) : "";
+    if (
+      (error.code === "P2010" && meta.includes("23P01")) ||
+      (error.code === "P2004" && meta.includes("bookings_no_overlap"))
+    ) return true;
+  }
+  return error instanceof Error &&
+    (error.message.includes("bookings_no_overlap") || error.message.includes("23P01"));
 }
 
 export async function rescheduleBookingAsAdmin(
@@ -118,16 +151,13 @@ export async function rescheduleBookingAsAdmin(
           return { ok: false as const, code: "NOT_FOUND" as const };
         const booking = await tx.booking.findUnique({
           where: { id: input.bookingId },
-          select: { status: true, startAt: true, endAt: true },
+          select: { status: true, startAt: true },
         });
         if (!booking) return { ok: false as const, code: "NOT_FOUND" as const };
         if (booking.status !== "CONFIRMED")
           return { ok: false as const, code: "INVALID_STATE" as const };
         if (booking.startAt.getTime() !== input.expectedStartAt.getTime())
           return { ok: false as const, code: "STALE" as const };
-        const durationMs = booking.endAt.getTime() - booking.startAt.getTime();
-        if (durationMs <= 0 || durationMs % 60_000 !== 0)
-          return { ok: false as const, code: "INVALID_STATE" as const };
         let newStartAt: Date;
         try {
           newStartAt = localDateTimeToUtc(
@@ -139,7 +169,11 @@ export async function rescheduleBookingAsAdmin(
         }
         if (newStartAt.getTime() === booking.startAt.getTime())
           return { ok: true as const };
-        const newEndAt = new Date(newStartAt.getTime() + durationMs);
+        const slotDurationMinutes =
+          PHOTO_SESSION_DURATION_MINUTES + PHOTO_SESSION_BUFFER_MINUTES;
+        const newEndAt = new Date(
+          newStartAt.getTime() + slotDurationMinutes * 60_000,
+        );
         const date = getLocalDate(newStartAt, env.STUDIO_TIMEZONE);
         const bounds = localDayBoundsUtc(date, env.STUDIO_TIMEZONE);
         const [hours, blocks, otherBookings] = await Promise.all([
@@ -175,9 +209,9 @@ export async function rescheduleBookingAsAdmin(
           isOpen: hours?.isOpen ?? false,
           openTime: hours?.openTime ?? "00:00",
           closeTime: hours?.closeTime ?? "00:00",
-          durationMinutes: durationMs / 60_000,
-          bufferMinutes: 0,
-          slotIntervalMinutes: env.SLOT_INTERVAL_MINUTES,
+          durationMinutes: PHOTO_SESSION_DURATION_MINUTES,
+          bufferMinutes: PHOTO_SESSION_BUFFER_MINUTES,
+          slotIntervalMinutes: PHOTO_SESSION_SLOT_INTERVAL_MINUTES,
           minLeadHours: env.MIN_LEAD_HOURS,
           maxAdvanceDays: env.MAX_ADVANCE_DAYS,
           bookings: otherBookings,
@@ -208,4 +242,40 @@ export async function rescheduleBookingAsAdmin(
       return { ok: false as const, code: "CONFLICT" as const };
     throw error;
   }
+}
+
+export async function markPaymentRefundedAsAdmin(input: {
+  paymentId: string;
+  adminId: string;
+  reason: string;
+  now?: Date;
+}) {
+  const reason = input.reason.trim();
+  if (reason.length < 3 || reason.length > 1000)
+    return { ok: false as const, code: "INVALID_INPUT" as const };
+
+  const eligible = await prisma.payment.findUnique({
+    where: { id: input.paymentId },
+    select: { id: true, status: true, booking: { select: { status: true } } },
+  });
+  if (!eligible) return { ok: false as const, code: "NOT_FOUND" as const };
+  if (eligible.status !== "PAID" || eligible.booking.status !== "CANCELLED")
+    return { ok: false as const, code: "INVALID_STATE" as const };
+
+  const changed = await prisma.payment.updateMany({
+    where: {
+      id: input.paymentId,
+      status: "PAID",
+      booking: { status: "CANCELLED" },
+    },
+    data: {
+      status: "REFUNDED",
+      refundedAt: input.now ?? new Date(),
+      refundReason: reason,
+      refundedByAdminId: input.adminId,
+    },
+  });
+  return changed.count === 1
+    ? { ok: true as const }
+    : { ok: false as const, code: "INVALID_STATE" as const };
 }

@@ -1,13 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { packageInputSchema } from "@/modules/packages/schema";
+import {
+  packageActiveActionSchema,
+  packageIdSchema,
+  packageInputSchema,
+} from "@/modules/packages/schema";
 
 const validPackage = {
   slug: "portrait-basic",
   name: "Portrait Basic",
   description: "Sesi portrait untuk satu orang.",
-  price: 150_000,
-  durationMinutes: 45,
-  bufferMinutes: 15,
+  price: 30_000,
   coverImageUrl: "",
   sortOrder: 1,
 };
@@ -18,17 +20,32 @@ describe("packageInputSchema", () => {
   });
 
   it.each([
-    { price: -1 },
-    { price: 1.5 },
-    { durationMinutes: 0 },
-    { durationMinutes: 15.5 },
-    { bufferMinutes: -1 },
+    { price: 19_999 },
+    { price: 40_001 },
+    { price: 20_000.5 },
     { sortOrder: -1 },
     { slug: "Portrait Basic" },
     { coverImageUrl: "javascript:alert(1)" },
   ])("rejects invalid package fields: %o", (fields) => {
     expect(
       packageInputSchema.safeParse({ ...validPackage, ...fields }).success,
+    ).toBe(false);
+  });
+});
+
+describe("package admin action schemas", () => {
+  it("parses bounded IDs and package active form values", () => {
+    expect(packageIdSchema.safeParse("package-id").success).toBe(true);
+    expect(packageIdSchema.safeParse("x".repeat(65)).success).toBe(false);
+    expect(
+      packageActiveActionSchema.parse({ id: "package-id", isActive: "false" }),
+    ).toEqual({ id: "package-id", isActive: false });
+  });
+
+  it("rejects malformed active form values", () => {
+    expect(
+      packageActiveActionSchema.safeParse({ id: "package-id", isActive: "yes" })
+        .success,
     ).toBe(false);
   });
 });

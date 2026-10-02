@@ -1,5 +1,9 @@
 import type { Package } from "@prisma/client";
 import { savePackage } from "@/modules/packages/actions";
+import {
+  PHOTO_SESSION_BUFFER_MINUTES,
+  PHOTO_SESSION_DURATION_MINUTES,
+} from "@/modules/scheduling/session-duration";
 
 type PackageFormProps = {
   packageRecord?: Package;
@@ -74,35 +78,19 @@ export function PackageForm({ packageRecord, error }: PackageFormProps) {
             name="price"
             type="number"
             required
-            min={0}
+            min={20000}
+            max={40000}
             step={1}
-            defaultValue={packageRecord?.price ?? 0}
+            defaultValue={packageRecord?.price ?? 20000}
           />
+          <span className="mt-1 block text-xs font-normal text-muted-foreground">
+            Harga package Rp20.000–Rp40.000.
+          </span>
         </label>
-        <label className="text-sm font-medium">
-          Durasi (menit)
-          <input
-            className={fieldClassName}
-            name="durationMinutes"
-            type="number"
-            required
-            min={1}
-            step={1}
-            defaultValue={packageRecord?.durationMinutes ?? 60}
-          />
-        </label>
-        <label className="text-sm font-medium">
-          Buffer (menit)
-          <input
-            className={fieldClassName}
-            name="bufferMinutes"
-            type="number"
-            required
-            min={0}
-            step={1}
-            defaultValue={packageRecord?.bufferMinutes ?? 0}
-          />
-        </label>
+        <p className="text-sm font-medium text-muted-foreground sm:col-span-2">
+          Durasi sesi ditetapkan {PHOTO_SESSION_DURATION_MINUTES} menit dengan
+          jeda {PHOTO_SESSION_BUFFER_MINUTES} menit antar sesi.
+        </p>
         <label className="text-sm font-medium">
           Urutan tampil
           <input

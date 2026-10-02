@@ -27,6 +27,11 @@ export const adminCancelBookingInputSchema = z.object({
   reason: z.string().trim().min(3).max(1000),
 });
 
+export const adminMarkRefundedInputSchema = z.object({
+  paymentId: z.string().trim().min(1).max(64),
+  reason: z.string().trim().min(3).max(1000),
+});
+
 export const adminRescheduleBookingInputSchema = z.object({
   bookingId: bookingIdSchema,
   newStartAt: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/),

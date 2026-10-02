@@ -144,7 +144,12 @@ describe("availability and schedule blocks against PostgreSQL", () => {
     const result = await getPackageAvailability(packageId, date, now);
     expect(result).not.toBeNull();
     expect(result?.slots.map((slot) => slot.startAt)).toEqual([
-      at("10:30").toISOString(),
+      at("10:36").toISOString(),
+      at("10:48").toISOString(),
+      at("11:00").toISOString(),
+      at("11:12").toISOString(),
+      at("13:36").toISOString(),
+      at("13:48").toISOString(),
     ]);
   });
 

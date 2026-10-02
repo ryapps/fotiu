@@ -220,7 +220,7 @@ memerlukannya saat fitur masing-masing diimplementasikan.
 - [x] Admin: daftar package, create, update (FR-050)
 - [x] Admin: aktif/nonaktif (FR-051)
 - [x] Admin: hapus hanya jika tidak punya booking (FR-052)
-- [x] Skema validasi Zod untuk package (harga ≥ 0, durasi > 0, slug unik)
+- [x] Skema validasi Zod untuk package (harga Rp20.000–Rp40.000, durasi sesi/jeda tetap 10/2 menit, slug unik)
 - [x] State loading, empty, dan error
 
 ### TASK-3.1 — Package Deactivation dan Deletion Rule
@@ -266,9 +266,10 @@ Soft delete vs hard delete, snapshot data historis, foreign key `RESTRICT`.
 
 - [x] Admin: atur jam operasional per hari (FR-060)
 - [x] Admin: schedule block, create dan delete (FR-061)
-- [x] Konfigurasi booking (slot interval, lead time, max advance)
+- [x] Konfigurasi booking (lead time dan max advance; slot tetap 12 menit)
 - [x] Util waktu (konversi UTC dan Asia/Jakarta)
 - [x] `getAvailability` (FR-021, FR-062, FR-063)
+- [x] Sesi tetap 10 menit dengan jeda 2 menit; slot berulang tiap 12 menit sampai jam tutup.
 - [x] UI pemilih tanggal dan slot (sementara tanpa membuat booking)
 
 ### TASK-4.1 — Availability Calculation
@@ -292,7 +293,7 @@ TASK-3.1, operating hours, schedule block.
 
 - Hari tutup atau tanggal masa lalu.
 - Slot yang melewati jam tutup.
-- Package dengan durasi dan buffer berbeda pada hari yang sama.
+- Slot sesi tetap 10 menit + jeda 2 menit, berulang setiap 12 menit.
 - Hold yang sudah expired namun belum di-sweep.
 - Pergantian hari dan perbedaan UTC vs Asia/Jakarta.
 - Blokir yang sebagian menimpa jam operasional.
@@ -474,7 +475,7 @@ TASK-5.1.
 
 **Acceptance Criteria**
 
-- [ ] Booking baru menampilkan QR sandbox dan countdown (perlu kredensial sandbox untuk verifikasi nyata).
+- [x] Booking baru menampilkan QR sandbox dan countdown; smoke test Midtrans sandbox memverifikasi QR URL dan expiry tersimpan sesuai hold.
 - [x] Kegagalan provider tidak menghilangkan booking, dan ada tombol coba lagi.
 - [x] Tidak pernah ada lebih dari satu payment per booking.
 - [x] Customer lain tidak dapat memanggil `createPayment` untuk booking bukan miliknya.
@@ -527,7 +528,7 @@ Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), s
 
 **Definition of Done (Phase 6)**
 
-- [ ] Alur sandbox lengkap: booking → QRIS → bayar → CONFIRMED otomatis (menunggu akun dan Server Key sandbox).
+- [ ] Alur sandbox lengkap: booking → QRIS → settlement QRIS dari handphone → CONFIRMED otomatis (QR berhasil dibuat; settlement melalui handphone belum diverifikasi).
 - [x] Test webhook (valid, duplikat, invalid, terlambat) lulus.
 - [x] Log webhook tersedia melalui `payment_events` dan tidak menyimpan Server Key.
 
@@ -535,8 +536,13 @@ Catatan progres: implementasi provider dan simulasi webhook lokal tersedia; unit
 dan integration test lulus. Server Key sandbox sudah diverifikasi melalui API
 status Midtrans. Smoke test sandbox membuat QRIS lewat service aplikasi dan
 memastikan payment `PENDING`, URL QR, serta expiry tersimpan sesuai hold; fixture
-lokal dibersihkan dan QR tidak dibayar. Alur QR terlihat di browser dan settlement
-sandbox menuju `CONFIRMED` masih perlu diverifikasi.
+lokal dibersihkan dan QR tidak dibayar. Midtrans menjelaskan [alur uji sandbox](https://docs.midtrans.com/docs/testing-payment-on-sandbox)
+dan [simulator QRIS](https://simulator.sandbox.midtrans.com/openapi/qris/index):
+masukkan URL gambar QR sandbox ke simulator. Halaman booking kini menampilkan
+URL dan tautan simulator hanya ketika provider disetel ke sandbox. Jangan
+membayar QR sandbox melalui aplikasi bank/e-wallet sungguhan; Midtrans
+memperingatkan dana dapat masuk ke tujuan yang tidak dapat dipulihkan.
+Settlement melalui simulator dan status `CONFIRMED` masih perlu dijalankan.
 
 ---
 
@@ -553,13 +559,19 @@ Workstream ini mempertahankan phase booking/payment sebelumnya sebagai dependenc
 - [x] Definisikan provider-agnostic provider key, booth read status, command/event enums, dan photo session status.
 - [x] Tambahkan foreign keys, CHECK constraints, partial unique indexes untuk satu active session per booth dan booking, serta index query yang nyata.
 - [x] Pertahankan booking exclusion constraint dan snapshot/payment constraints.
-- [ ] Test migration dari database kosong dan constraint active session.
+- [x] Test migration seluruhnya dari database kosong.
+- [x] Test database menolak duplikasi active session dengan partial unique constraint.
 
 **Definition of Done:** booking memiliki check-in ter-audit; percobaan photo session dan command dapat direpresentasikan tanpa provider tertentu; database mencegah active-session duplikat.
 
 **Learning Focus:** domain modeling, state machine, partial unique index, FK, konsistensi database.
 
-Catatan progres PB-1: Prisma schema dan migration domain photobooth sudah dibuat. Validasi schema berhasil; Prisma Client generation terhalang file query engine Windows yang sedang terkunci. Tes migration/constraint belum dijalankan.
+Catatan progres PB-1: seluruh enam migration berhasil diterapkan dari database
+sementara yang benar-benar kosong. Integration test juga membuktikan database
+menolak duplikasi active session (SQLSTATE 23505), termasuk assignment paralel
+dan retry setelah session FAILED. Prisma Client generation Windows masih
+melaporkan query-engine DLL terkunci oleh proses `next dev`; tipe client sudah
+terbaca dan integration suite lulus.
 
 ### PB-2 — Provider Abstraction dan Mock Provider
 
@@ -597,22 +609,25 @@ Catatan progres PB-2: provider contract, status normalizer, dan mock provider te
 Catatan progres PB-3: runner `npm run booth:agent`, heartbeat/poll/result/event endpoints,
 autentikasi device berbasis token hash, provisioning/rotasi/pencabutan token, dan
 halaman `/admin/booths` sudah tersedia. Token mentah hanya ditampilkan saat dibuat
-atau dirotasi. Penerapan migration dan uji koneksi end-to-end masih tertunda;
-perintah START_SESSION baru dapat dibuat saat PB-5 tersedia. Rate limit agent
-saat ini per proses aplikasi, sebagai perlindungan tambahan dan bukan batas global.
+atau dirotasi. Migration photobooth telah diterapkan pada database lokal. Integration
+test menjalankan Local Booth Agent dan MockBoothProvider melewati handler cloud
+heartbeat/poll/result/event. Smoke test proses agent melalui HTTP(S) lokal nyata
+masih perlu dilakukan. Prisma Client generation masih gagal karena file query engine
+Windows terkunci. Rate limit agent saat ini per proses aplikasi, sebagai perlindungan
+tambahan dan bukan batas global.
 
 ### PB-4 — Studio Check-in dan Booth Assignment
 
 **Dependency:** PB-1, PB-3, Phase 2, Phase 5, Phase 6.
 
-- [ ] Admin mencari booking dan check-in hanya jika CONFIRMED, payment PAID, non-terminal, dan masih pada jadwal yang memenuhi aturan operasional.
-- [ ] Simpan `checkedInAt` dan `checkedInByAdminId`; cegah check-in ganda.
-- [ ] Admin dapat melihat ONLINE/OFFLINE/BUSY/MAINTENANCE dan mengatur maintenance.
-- [ ] Assignment hanya ke booth ONLINE, bukan BUSY/MAINTENANCE, tanpa active session.
-- [ ] Assignment membuat photo session READY; retry sesi gagal membuat percobaan baru.
-- [ ] Customer tidak dapat check-in, assign, atau mengirim booth command.
+- [x] Admin mencari booking dan check-in hanya jika CONFIRMED, payment PAID, non-terminal, dan masih pada jadwal yang memenuhi aturan operasional.
+- [x] Simpan `checkedInAt` dan `checkedInByAdminId`; cegah check-in ganda.
+- [x] Admin dapat melihat ONLINE/OFFLINE/BUSY/MAINTENANCE dan mengatur maintenance.
+- [x] Assignment hanya ke booth ONLINE, bukan BUSY/MAINTENANCE, tanpa active session.
+- [x] Assignment membuat photo session READY; retry sesi gagal membuat percobaan baru.
+- [x] Customer tidak dapat check-in, assign, atau mengirim booth command.
 
-**Definition of Done:** admin dapat menyelesaikan `CONFIRMED + PAID → Check-in → Assign Booth → READY Photo Session` dengan server-side validation dan constraint.
+**Definition of Done:** admin dapat menyelesaikan `CONFIRMED + PAID → Check-in → Assign Booth → READY Photo Session` dengan server-side validation dan constraint. Integration tests check-in, offline assignment, duplicate assignment, dan retry lulus.
 
 **Learning Focus:** authorization, check-in rules, derived device state, assignment race.
 
@@ -620,43 +635,76 @@ saat ini per proses aplikasi, sebagai perlindungan tambahan dan bukan batas glob
 
 **Dependency:** PB-2, PB-3, PB-4.
 
-- [ ] `START_SESSION` membuat command dan mengubah READY → STARTING secara atomic.
-- [ ] Satu command/idempotency key per session; double-click/poll/retry tidak membuat sesi kedua.
-- [ ] Agent/Mock Provider menghasilkan SESSION_STARTED, SESSION_COMPLETED, atau SESSION_FAILED.
-- [ ] Terapkan normalized event inbox dengan unique event ID dan conditional state transition.
-- [ ] Update booking COMPLETED hanya setelah photo session COMPLETED; status command SUCCESS bukan pemicu completion.
-- [ ] SESSION_FAILED tidak menyelesaikan booking; recovery membuat attempt baru atau manual completion beralasan.
-- [ ] Catat `completionSource`, alasan, admin, dan waktu untuk manual recovery.
+- [x] `START_SESSION` membuat command dan mengubah READY → STARTING secara atomic.
+- [x] Satu command/idempotency key per session; double-click/poll/retry tidak membuat sesi kedua.
+- [x] Agent/Mock Provider menghasilkan SESSION_STARTED, SESSION_COMPLETED, atau SESSION_FAILED.
+- [x] Terapkan normalized event inbox dengan unique event ID dan conditional state transition.
+- [x] Update booking COMPLETED hanya setelah photo session COMPLETED; status command SUCCESS bukan pemicu completion.
+- [x] SESSION_FAILED tidak menyelesaikan booking; retry assignment membuat attempt baru, manual completion ditangani TASK-8.2.
+- [x] Catat `completionSource`, alasan, admin, dan waktu untuk manual recovery (TASK-8.2).
 
 **Definition of Done:** P0 berjalan `Check-in → Assign → Start → Mock session → normalized completion → Booking COMPLETED`; kegagalan dan duplikat tidak merusak status.
 
 **Learning Focus:** idempotency, command vs event, event normalization, transaksi, state consistency.
 
+Catatan progres PB-5: START_SESSION atomic dan idempotent; Local Booth Agent dengan
+MockBoothProvider diuji dari command polling sampai normalized completion. Command
+SUCCESS mempertahankan session STARTING/ACTIVE dan booking CONFIRMED. Event inbox
+mendeduplikasi event dan hanya completion yang valid menyelesaikan booking. Manual
+manual recovery completion dicatat oleh TASK-8.2 dengan alasan, aktor, waktu,
+dan source; sesi FAILED tetap terminal dan perlu attempt baru.
+
 ### PB-6 — Photobooth Reliability
 
 **Dependency:** PB-1 sampai PB-5.
 
-- [ ] Test booth offline sebelum dan setelah start; stale heartbeat dan reconnect agent.
-- [ ] Test command/event duplikat, command pending untuk booking cancelled, provider unavailable/delay/failure.
-- [ ] Cegah dua assignment/start aktif pada booth yang sama, termasuk request paralel.
-- [ ] Hasil PROCESSING yang tidak pasti setelah agent restart tidak auto-retry side effect; tampilkan untuk rekonsiliasi admin.
-- [ ] Dokumentasikan unsupported capabilities dan batasan pemulihan.
+- [x] Test booth offline sebelum dan setelah start; stale heartbeat dan reconnect agent.
+- [x] Test command/event duplikat, command pending untuk booking cancelled, provider unavailable/delay/failure.
+- [x] Cegah dua assignment/start aktif pada booth yang sama, termasuk request paralel.
+- [x] Hasil PROCESSING yang tidak pasti setelah agent restart tidak auto-retry side effect; tampilkan untuk rekonsiliasi admin.
+- [x] Dokumentasikan unsupported capabilities dan batasan pemulihan.
 
 **Definition of Done:** failure umum tidak membuat fake success, double session, atau booking COMPLETED tanpa session yang valid.
 
 **Learning Focus:** distributed systems basics, at-least-once delivery, timeout, recovery, invariant testing.
 
+Catatan progres PB-6: integration tests memverifikasi stale heartbeat/reconnect,
+pending command pada booking cancelled, provider unavailable/failure, duplicate
+start/event, serta agent restart dengan command PROCESSING tanpa auto-retry. Detail
+booking menampilkan keadaan yang memerlukan pemeriksaan manual. Mock stop/reprint
+tetap unsupported dan dibatasi pada satu booth P0.
+
 ### PB-7 — Real Provider Integration (P1)
 
 P1 setelah P0 selesai; jangan menandai P0 belum selesai karena provider nyata belum dipilih.
 
-- [ ] Riset kandidat dan bandingkan documented/official integration mechanism, session control/event, biaya, dan kesesuaian agent.
-- [ ] Pilih satu provider setelah evaluasi.
-- [ ] Verifikasi dokumentasi resmi terbaru; tidak melakukan reverse-engineering proprietary protocol.
-- [ ] Implementasikan adapter saja, test start/status/event di komputer studio, dan dokumentasikan capability unsupported.
-- [ ] Jika completion event tidak tersedia, gunakan status API resmi atau minta rekonsiliasi admin; jangan membuat fake completion.
+- [x] Riset kandidat dan bandingkan documented/official integration mechanism, session control/event, biaya, dan kesesuaian agent.
+- [x] Pilih Photobooth-App untuk integrasi lokal P1; FreeBooth tetap provider manual.
+- [x] Verifikasi action API dan Commander lifecycle hook dari dokumentasi/source resmi Photobooth-App.
+- [x] Tambahkan adapter action lokal, callback Commander loopback bertoken, pilihan/ganti provider saat booth tidak aktif, dan normalisasi event.
+- [x] Hanya callback `finished` tervalidasi yang menyelesaikan sesi; tanpa callback perlu rekonsiliasi admin.
+- [ ] Jalankan end-to-end Photobooth-App pada komputer booth studio dan validasi kamera/action/Commander callback.
 
-**Definition of Done:** satu software photobooth nyata menjalankan START_SESSION melalui agent dan hasil sesi diketahui melalui mekanisme resmi tanpa perubahan core booking architecture.
+Catatan riset kandidat (30 September 2026):
+
+| Kandidat                          | Integrasi resmi dan bukti hasil sesi                                                                                                                                                                                                                                                                                                                                                                                                                                             | Biaya publik                                                                                                                                      | Kesesuaian terhadap Local Booth Agent                                                                                                                                                                                           |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| LumaBooth for Windows (dslrBooth) | [Dokumentasi vendor](https://support.lumasoft.co/en/articles/12831651-triggers-webhooks-and-api) (26 Mar 2026) menyebut API untuk memulai Print/GIF/Boomerang/Video (v8+) dan trigger lokal `session_start`/`session_end`. Trigger URL mengirim query parameters ke URL yang dikonfigurasi. API butuh autentikasi/password; format credential dan pengamanan lokal perlu ditinjau dari [API docs](https://documenter.getpostman.com/view/5516194/UVRBnmJ5) sebelum implementasi. | [USD 17/bulan ditagih tahunan atau USD 49.99/bulan](https://www.lumabooth.com/pricing), harga dapat berubah.                                      | Kandidat kuat bila studio sudah memakai PC Windows: command dapat menuju aplikasi lokal dan trigger dapat dinormalisasi agent. Belum diuji di booth studio.                                                                     |
+| Breeze Booth (iPad/iPhone)        | [Dokumentasi Breeze](https://www.breezesys.com/downloads/Breeze_Booth.pdf) yang terindeks menyebut `statusUrl`, password, dan interval; [vendor blog](https://blog.breezesys.com/tag/featured/page/6/) menyebut monitoring status jarak jauh dan pengiriman command individual. PDF manual mengembalikan 404 saat riset, sehingga detail dan sinyal completion versi terbaru belum terverifikasi.                                                                                | Harga aktif tidak ditemukan pada rujukan resmi yang dapat diverifikasi; minta harga vendor. Harga blog 2019 tidak dipakai sebagai harga saat ini. | Status URL/remote control berpotensi cocok bila booth iPad, tetapi perlu endpoint HTTPS yang dapat dijangkau perangkat dan ada password/interval. Belum terbukti menyediakan normalized session completion yang Fotiu perlukan. |
+| FreeBooth 0.9.4                   | [Panduan resmi](https://www.free-booth.com/index.php/how-to-build-a-diy-photo-booth/) memandu aplikasi tethering menyalin foto ke folder images dan operator menjalankan photobooth lokal. [Riwayat source](https://github.com/Luy242/freebooth) menyebut slideshow server dihapus sejak 0.9.3; tidak ditemukan dokumentasi remote session control/status.                                                                                                                       | Gratis/open-source menurut [website resmi](https://www.free-booth.com/).                                                                          | Cocok sebagai software lokal demo manual; tidak cocok untuk remote start atau completion otomatis. Agent hanya heartbeat, admin mencatat operasi setelah verifikasi.                                                            |
+| Photobooth-App                   | [REST action API](https://photobooth-app.org/setup/configuration/actions) dan [Commander hooks](https://photobooth-app.org/setup/configuration/commander) mendukung trigger dan callback `counting`/`capture`/`finished`; endpoint action diverifikasi di [source resmi](https://github.com/photobooth-app/photobooth-app).                                                                                                        | Gratis, open-source MIT.                                                                                                                          | Dipilih untuk integrasi lokal P1. Agent mengirim action ke loopback dan menerima lifecycle callback. DSLR pada Windows memakai DigiCamControl backend yang upstream tandai tidak terpelihara; uji kamera aktual sebelum demo. |
+| FreeBooth 0.9.4                   | [Panduan resmi](https://www.free-booth.com/index.php/how-to-build-a-diy-photo-booth/) memandu aplikasi tethering menyalin foto ke folder images dan operator menjalankan photobooth lokal. [Riwayat source](https://github.com/Luy242/freebooth) menyebut slideshow server dihapus sejak 0.9.3; tidak ditemukan dokumentasi remote session control/status.                                                                                                                       | Gratis/open-source menurut [website resmi](https://www.free-booth.com/).                                                                          | Tetap tersedia sebagai software lokal demo manual; agent heartbeat saja dan admin mencatat operasi setelah verifikasi.                                                                                                     |
+
+Photobooth-App sekarang dipilih untuk demonstrasi remote start dan completion
+melalui adapter lokal. Commander harus dikonfigurasi mengikuti
+`docs/PHOTOBOOTH-APP.md`. FreeBooth tetap dapat digunakan sebagai alternatif
+manual melalui `docs/FREEBOOTH-DEMO.md`.
+
+**Definition of Done P1:** booking lunas/check-in dapat di-assign ke booth
+Photobooth-App online; agent mengirim action lokal; Commander `finished` melewati
+normalized event dan menutup booking sesuai state machine. Jalankan end-to-end
+pada komputer studio dan validasi kamera sebelum demo. FreeBooth manual recovery
+tetap tersedia.
 
 ---
 
@@ -726,10 +774,10 @@ kebutuhan refund manual dapat diturunkan dari booking CANCELLED + payment PAID.
 - [x] Indikator "perlu review" dan "perlu refund"
 - [x] `cancelBookingAdmin` (FR-045)
 - [x] `rescheduleBooking` (FR-044)
-- [ ] `completeBooking` (FR-046)
+- [x] `completeBooking` (FR-046; normal session completion and audited manual recovery implemented in the photobooth workflow)
 - [x] `/admin/calendar` (FR-049)
 - [x] `/admin/customers` (FR-047)
-- [ ] (P2) `markPaymentRefunded` (FR-038)
+- [x] (P2) `markPaymentRefunded` (FR-038; conditional PAID → REFUNDED after manual refund, with reason/admin/time audit)
 
 ### TASK-8.1 — Admin Reschedule
 
@@ -743,7 +791,7 @@ TASK-1.1, TASK-4.1, TASK-2.3.
 
 **Requirements**
 
-- Hanya CONFIRMED. Durasi dan buffer mengikuti package/booking.
+- Hanya CONFIRMED. Durasi dan buffer tetap 10/2 menit.
 - Validasi slot baru (jam operasional, blokir).
 - `UPDATE ... WHERE id AND status='CONFIRMED'`, konflik ditangkap dari constraint.
 - Booking tetap di slot lama jika gagal.
@@ -757,10 +805,10 @@ TASK-1.1, TASK-4.1, TASK-2.3.
 
 **Acceptance Criteria**
 
-- [ ] Reschedule ke slot kosong berhasil.
-- [ ] Reschedule ke slot terisi ditolak dan booking tidak berubah.
-- [ ] Geser sebagian ke rentang yang overlap dengan dirinya sendiri berhasil.
-- [ ] Customer tidak dapat memanggil aksi ini.
+- [x] Reschedule ke slot kosong berhasil.
+- [x] Reschedule ke slot terisi ditolak dan booking tidak berubah.
+- [x] Geser sebagian ke rentang yang overlap dengan dirinya sendiri berhasil.
+- [x] Customer tidak dapat memanggil aksi ini.
 
 **Learning Focus**
 
@@ -776,7 +824,15 @@ Admin menutup atau membatalkan booking dengan aturan transisi yang benar.
 
 TASK-6.2, PB-5. Complete/cancel action tetap bagian booking state machine; booking hanya completed setelah sesi photobooth valid atau manual recovery.
 
-Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer, indikator payment, pembatalan admin, dan reschedule sudah dibuat. Reschedule mempertahankan total rentang booking yang tersimpan (`endAt - startAt`), memvalidasi jam operasional, interval slot, blokir, serta booking lain; waktu awal yang dikirim form dipakai untuk menolak submit usang dari admin lain. Acceptance test reschedule belum dijalankan. `completeBooking` tetap menunggu PB-5 karena PB-1 sampai PB-5 belum tersedia dan schema belum memiliki model sesi photobooth.
+Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer,
+indikator payment, pembatalan admin, dan reschedule tersedia. Reschedule
+memakai durasi tetap 10 menit + jeda 2 menit, memvalidasi jam operasional,
+interval 12 menit, blokir, dan
+booking lain; constraint integration test mencakup konflik/self-overlap. Complete
+normal hanya menerima session COMPLETED; manual recovery memerlukan alasan dan
+menyimpan admin/waktu/source. Pembatalan PAID menampilkan kebutuhan refund; READY
+session dibatalkan, sedangkan session/command yang mungkin sudah berjalan tetap
+di-reserve sampai direkonsiliasi. Lint, typecheck, dan integration suite lulus.
 
 **Requirements**
 
@@ -795,11 +851,11 @@ Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer, ind
 
 **Acceptance Criteria**
 
-- [ ] Complete sebelum `startAt` ditolak.
-- [ ] Booking tidak dapat completed sebelum session selesai; manual recovery memerlukan reason/audit.
-- [ ] SESSION_FAILED tidak menyelesaikan booking.
-- [ ] Cancel COMPLETED ditolak.
-- [ ] Cancel CONFIRMED menampilkan penanda perlu refund.
+- [x] Complete sebelum `startAt` ditolak.
+- [x] Booking tidak dapat completed sebelum session selesai; manual recovery memerlukan reason/audit.
+- [x] SESSION_FAILED tidak menyelesaikan booking.
+- [x] Cancel COMPLETED ditolak.
+- [x] Cancel CONFIRMED menampilkan penanda perlu refund.
 
 **Learning Focus**
 
@@ -807,57 +863,100 @@ State machine terpusat, aturan berbasis waktu, audit metadata (`cancelledBy`, `r
 
 **Definition of Done (Phase 8)**
 
-- [ ] Admin dapat menjalankan seluruh siklus booking dari dashboard.
-- [ ] Semua aksi admin diotorisasi server-side dan teruji.
+- [x] Admin dapat menjalankan siklus booking dan photobooth dari dashboard.
+- [x] Semua aksi admin diotorisasi server-side; aksi inti diuji dengan integration test.
 
 ---
 
 ## Phase 9 — Admin Dashboard
 
-- [ ] Ringkasan jumlah booking per status
-- [ ] Sesi hari ini dan mendatang
-- [ ] Pendapatan sederhana (SUM payment `PAID`, periode bulan ini)
-- [ ] Daftar booking yang butuh perhatian (perlu review, perlu refund)
-- [ ] Tanpa advanced analytics
+- [x] Ringkasan jumlah booking per status
+- [x] Sesi hari ini dan mendatang
+- [x] Pendapatan sederhana (SUM payment `PAID`, periode bulan ini)
+- [x] Daftar booking yang butuh perhatian (perlu review, perlu refund)
+- [x] Tanpa advanced analytics
 
 **Definition of Done**
 
-- [ ] Angka dashboard sesuai data (diverifikasi dengan data seed).
-- [ ] Query efisien untuk data skala kecil dan tidak mengekspos data non-admin.
+- [x] Agregat dashboard sesuai data DB; diverifikasi terhadap database development (1 EXPIRED, 1 CONFIRMED, revenue PAID bulan ini Rp150.000, 0 perlu perhatian).
+- [x] Query dibatasi untuk ringkasan dan delapan baris per daftar; route memanggil `requireAdmin` sebelum membaca data.
 
 ---
 
 ## Phase 10 — Gallery & Public Polish
 
-- [ ] Upload gambar via presigned URL (validasi tipe dan ukuran, FR-053)
-- [ ] `/admin/gallery`
-- [ ] Halaman `/gallery` (FR-003)
-- [ ] Landing page final termasuk info studio (FR-004)
-- [ ] Responsive audit (customer mobile-first, admin desktop-first)
-- [ ] Loading, empty, dan error state di semua halaman utama
-- [ ] `error.tsx`, `not-found.tsx`, metadata dan SEO dasar
-- [ ] Pemeriksaan aksesibilitas dasar
+- [x] Upload gambar via presigned URL (validasi tipe dan ukuran, FR-053; storage credentials/CORS still required to verify against a live bucket)
+- [x] `/admin/gallery`
+- [x] Halaman `/gallery` (FR-003)
+- [x] Landing page final termasuk info studio (FR-004); alamat dan kontak terkonfigurasi pada development `.env`
+- [x] Responsive smoke audit halaman publik/customer utama (HP) dan dashboard/detail admin (desktop)
+- [x] Loading, empty, dan error state pada seluruh halaman utama
+- [x] `error.tsx`, `not-found.tsx`, metadata dan SEO dasar
+- [x] Pemeriksaan aksesibilitas dasar
+
+Catatan progres Phase 10: S3-compatible presigned upload, validasi file dan
+metadata, draft/publish, halaman admin/public gallery, serta landing responsive
+telah dibuat. Screenshot menangkap dan membantu memperbaiki fallback serif akibat
+CSS font variable yang self-reference. Unit test magic-byte JPEG/PNG/WebP lulus.
+Test action upload juga membuktikan authorization admin, penolakan tipe/ukuran
+invalid, dan pembuatan presigned request.
+Jam operasional landing page dibaca dari database; alamat dan kontak
+menggunakan `STUDIO_ADDRESS` dan `STUDIO_CONTACT`. Kedua nilai development
+sekarang sudah dikonfigurasi, sehingga landing menampilkan info studio. Pastikan
+nilai yang sama disetel pada environment production. Variabel `STORAGE_*` kini
+ada pada development `.env`; unggah langsung tetap perlu diuji terhadap bucket
+dan aturan CORS aktual. Pemeriksaan dasar
+memeriksa label form, heading, status/error, serta skip link keyboard. Playwright
+memeriksa skip link dan overflow pada homepage, gallery, package list/detail,
+booking, login, dashboard customer, serta halaman admin utama. Route utama
+memiliki fallback global/nested dan empty state.
 
 **Definition of Done**
 
-- [ ] Semua halaman publik dapat dipakai dengan baik di HP.
-- [ ] Upload menolak tipe/ukuran tidak valid dan hanya admin yang dapat upload.
-- [ ] Tidak ada halaman kosong tanpa penjelasan.
+- [x] Halaman publik/customer utama dapat dipakai di HP; diuji pada homepage, gallery, package list/detail, booking, login, dan dashboard.
+- [x] Upload menolak tipe/ukuran tidak valid dan hanya admin yang dapat meminta presigned URL; metadata upload is re-verified server-side.
+- [x] Tidak ada halaman utama kosong tanpa penjelasan; loading, empty, error, dan not-found states tersedia.
 
 ---
 
 ## Phase 11 — Security & Reliability
 
-- [ ] Audit authorization untuk semua endpoint (matriks dari DESIGN bagian 6)
-- [ ] Test IDOR untuk semua resource customer
-- [ ] Rate limiting: login admin, `createBooking`, `createPayment`
-- [ ] Review agent credential scope/rotation, device-to-booth ownership, polling, dan event validation
-- [ ] Review stale heartbeat, command replay, duplicate normalized event, dan manual recovery audit
-- [ ] Review validasi input di semua mutation
-- [ ] Review webhook (signature, amount, idempotency)
-- [ ] Review environment variables dan pastikan tidak ada secret di client bundle
-- [ ] Security header dan konfigurasi cookie
-- [ ] Review izin role database
+- [x] Audit authorization untuk semua endpoint (matriks dari DESIGN bagian 6)
+- [x] Test IDOR untuk akses status/detail/mutasi booking customer; resource lain difilter owner di server query.
+- [x] Rate limiting: login admin, `createBooking`, `createPayment`
+- [x] Review agent credential scope/rotation, device-to-booth ownership, polling, dan event validation
+- [x] Review stale heartbeat, command replay, duplicate normalized event, dan manual recovery audit
+- [x] Review validasi input di semua mutation
+- [x] Review webhook (signature, amount, idempotency)
+- [x] Review environment variables dan pastikan tidak ada secret di client bundle
+- [x] Security header dan konfigurasi cookie
+- [x] Uji role migration dan runtime terpisah pada database PostgreSQL terisolasi: migration dari kosong berhasil; runtime dapat CRUD tanpa privilege CREATE database/schema.
+- [ ] Verifikasi grant dan TLS role runtime/migration pada database production (environment production belum tersedia).
+
+Catatan progres Phase 11: rate limit login admin sudah memakai database; booking
+(10/menit/customer) dan pembuatan payment (5/15 menit/customer) kini memakai
+upsert PostgreSQL atomik dan diuji dengan 24 request bersamaan. Agent, webhook,
+heartbeat, command/event, dan recovery memiliki integration coverage. Audit
+authorization aplikasi, IDOR booking, dan bundle secret sudah selesai. Database
+sementara baru dibuat untuk menguji migration dari kosong memakai owner role
+terpisah dan runtime role yang hanya mendapat DML: seluruh enam migration sukses,
+runtime create/read/delete berhasil, dan query privilege memastikan role runtime
+tidak dapat membuat objek database/schema. Ke-48 integration tests juga lulus
+menggunakan runtime role DML sementara pada `fotiu_test`. Kedua role dan database
+sementara dibersihkan setelah uji. Grant/TLS nyata tetap harus diverifikasi saat
+database production provision (lihat Phase 13). High severity
+GHSA pada deepmerge-ts di Prisma config diperbaiki dengan npm override ke 8.x;
+`npm run db:generate`, migration, test, dan build diverifikasi setelah perubahan.
+Moderate GHSA pada `@vitest/mocker` ditutup dengan upgrade Vitest 4.1.11 dan
+peer dependency Vite 7. `npm audit` kini bersih; kedua perubahan tooling
+dijelaskan di ADR-006/007 pada DESIGN dan perlu ditinjau lagi saat Prisma atau
+Vitest diperbarui.
+
+Review input memeriksa Server Actions, webhook, route agent, availability, dan
+cron: mutation memakai skema Zod/validator, payload agent dibatasi 4 KiB,
+webhook 64 KiB, serta query tanggal/package dan path ID tervalidasi. Validasi
+field ID package yang sebelumnya manual kini memakai skema Zod terbatas dan
+memiliki unit test.
 
 ### TASK-11.1 — Concurrency dan Race Condition Testing
 
@@ -883,10 +982,10 @@ Phase 5, Phase 6, Phase 8.
 
 **Acceptance Criteria**
 
-- [ ] Untuk slot yang sama, jumlah booking aktif selalu 1.
-- [ ] Tidak ada booking CONFIRMED tanpa payment PAID.
-- [ ] Tidak ada payment PAID ganda atau update ganda.
-- [ ] Test stabil saat dijalankan berulang.
+- [x] Untuk slot yang sama, jumlah booking aktif selalu 1.
+- [x] Tidak ada booking CONFIRMED tanpa payment PAID.
+- [x] Tidak ada payment PAID ganda atau update ganda.
+- [x] Test stabil saat dijalankan berulang.
 
 **Learning Focus**
 
@@ -894,25 +993,38 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 
 **Definition of Done (Phase 11)**
 
-- [ ] Seluruh checklist audit selesai dan temuan diperbaiki atau dicatat.
-- [ ] Test race dan IDOR lulus.
-- [ ] Tidak ada secret bocor.
+- [ ] Seluruh checklist audit selesai dan temuan diperbaiki atau dicatat (izin role database produksi masih menunggu deployment).
+- [x] Test race dan IDOR lulus; suite integration dijalankan berulang.
+- [x] Pemeriksaan source tidak menemukan secret dalam client bundle.
 
 ---
 
 ## Phase 12 — Testing
 
-- [ ] Unit test: availability, overlap, booking/photo session/booth state machines, event normalization, mapping status, signature, aturan cancel, MockBoothProvider modes
-- [ ] Integration test: booking, payment webhook, authorization, booth assignment/commands/events (database test terpisah)
-- [ ] E2E Playwright: alur customer (login seeded, package, slot, booking, simulasi webhook, CONFIRMED, dashboard)
-- [ ] E2E Playwright: alur admin (login, lihat booking, kelola package, complete)
-- [ ] Script `npm run test`, `test:e2e` dan integrasi CI sederhana (lint, typecheck, test)
+- [x] Unit test: availability, overlap, booking/photo session/booth state machines, event normalization, mapping status, signature, aturan cancel, MockBoothProvider modes
+- [x] Integration test: booking, payment webhook, authorization, booth assignment/commands/events (database test terpisah)
+- [x] E2E Playwright: alur customer (login seeded, package, slot, booking, simulasi webhook, CONFIRMED, dashboard)
+- [x] E2E Playwright: alur admin (login, lihat booking, check-in, booth, mulai mock session, manual recovery completion)
+- [x] Script `npm run test`, `test:e2e` dan integrasi CI sederhana (lint, typecheck, test)
+
+Catatan progres Phase 12: setelah dependency security updates, pemeriksaan lokal
+terbaru lulus: lint, typecheck, `npm audit` (0 vulnerabilities), 59 unit test, 48
+integration test PostgreSQL, dan 4 Playwright E2E (termasuk production build
+serta tampilan link simulator QRIS di booking sandbox). Audit dependency runtime
+ulang dengan `npm audit --omit=dev` menemukan 0 vulnerabilities.
+Integration runner mengeksekusi file/suite secara berurutan karena fixture DB
+berbagi jadwal dan booth; test request paralel tetap menguji race condition di
+dalam skenario masing-masing.
+Workflow CI
+GitHub Actions menjalankan rangkaian tersebut di PostgreSQL 16 dan Node 24;
+status remote belum dapat diketahui sampai workflow dijalankan pada GitHub.
+Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 **Definition of Done**
 
-- [ ] Semua test lulus secara lokal dan di CI.
-- [ ] Prioritas test dari `AGENTS.md` bagian 17 terpenuhi.
-- [ ] Tidak ada test yang di-skip tanpa alasan tertulis.
+- [ ] Semua test lulus secara lokal dan di CI (hasil lokal lulus; run remote GitHub menunggu push).
+- [x] Prioritas test dari `AGENTS.md` bagian 17 terpenuhi untuk alur booking, authorization, payment webhook, availability, cancellation, dan booth/session.
+- [x] Tidak ada test yang di-skip tanpa alasan tertulis.
 
 ---
 
@@ -929,7 +1041,8 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Pastikan cloud endpoint HTTPS dapat dijangkau agent melalui koneksi outbound
 - [ ] Domain dan HTTPS
 - [ ] Smoke test end-to-end di produksi
-- [ ] README: deskripsi proyek, screenshot, cara menjalankan lokal, dan tautan demo
+- [x] README: deskripsi proyek, screenshot lokal, dan cara menjalankan lokal
+- [ ] Tambahkan screenshot dan tautan demo setelah deployment tersedia
 
 **Definition of Done**
 
@@ -937,51 +1050,68 @@ Menguji invarian di bawah concurrency, transaction isolation, deterministic test
 - [ ] Webhook produksi menerima dan memverifikasi event.
 - [ ] Tidak ada secret di repository atau log.
 
+Catatan kesiapan Phase 13: README, migration, CI, dan E2E deployment build
+sudah disiapkan. Aktivasi produksi memerlukan database managed, runtime role
+DML terbatas yang terpisah dari migration role pada `DIRECT_URL`, grant dan TLS
+yang diverifikasi, OAuth redirect production, pilihan sandbox/production
+Midtrans dengan URL webhook,
+bucket S3-compatible dan CORS, project/akses Vercel, domain, serta booth komputer
+studio untuk provision credential dan smoke test. Belum ada demo URL atau
+screenshot deployment. `vercel.json` kini mendaftarkan sweep expiry harian; Vercel
+baru menjalankannya di deployment production dengan `CRON_SECRET` terpasang.
+Jangan mengisi checklist produksi sampai masing-masing integrasi benar-benar diuji.
+
 ---
 
 ## Final MVP Checklist
 
 **Customer**
 
-- [ ] Google Login
-- [ ] Lihat Package
-- [ ] Pilih Schedule (slot tersedia benar)
-- [ ] Booking (WAITING_PAYMENT, slot ditahan)
+- [x] Google Login (pernah diuji lokal; callback OAuth provider tetap harus diatur untuk production)
+- [x] Lihat Package
+- [x] Pilih Schedule (slot tersedia benar)
+- [x] Booking (WAITING_PAYMENT, slot ditahan)
 - [ ] Bayar QRIS
-- [ ] Webhook memverifikasi dan booking menjadi CONFIRMED
-- [ ] Booking tampil di Dashboard (upcoming, history, detail)
-- [ ] Cancel sesuai aturan
+- [x] Webhook memverifikasi dan booking menjadi CONFIRMED (signed sandbox payload test)
+- [x] Booking tampil di Dashboard (upcoming, history, detail)
+- [x] Cancel sesuai aturan
 
 **Admin**
 
-- [ ] Login
-- [ ] Lihat Booking (filter dan detail)
-- [ ] Kelola Schedule (jam operasional dan blokir)
-- [ ] Kelola Package
-- [ ] Complete Booking
-- [ ] Reschedule dan Cancel
-- [ ] Lihat Calendar dan Customer
-- [ ] Check-in booking CONFIRMED + PAID
-- [ ] Assign booth online dan memulai photo session
-- [ ] Session selesai sebelum booking COMPLETED; recovery manual mencatat alasan
+- [x] Login
+- [x] Lihat Booking (filter dan detail)
+- [x] Kelola Schedule (jam operasional dan blokir)
+- [x] Kelola Package
+- [x] Complete Booking
+- [x] Reschedule dan Cancel
+- [x] Lihat Calendar dan Customer
+- [x] Check-in booking CONFIRMED + PAID
+- [x] Assign booth online dan memulai photo session
+- [x] Session selesai sebelum booking COMPLETED; recovery manual mencatat alasan
 
 **Photobooth P0**
 
-- [ ] Tidak bergantung provider tertentu; MockBoothProvider mencakup success/failure/unavailable/delay
-- [ ] Local Booth Agent authenticated terpisah, mengirim heartbeat, dan menerima command lewat polling HTTPS
-- [ ] ONLINE/OFFLINE/BUSY/MAINTENANCE ditampilkan benar; booth unavailable ditolak
-- [ ] Command START_SESSION dan normalized events aman terhadap duplikasi
-- [ ] Workflow lengkap dapat dijalankan tanpa software photobooth berbayar atau hardware
+- [x] Tidak bergantung provider tertentu; MockBoothProvider mencakup success/failure/unavailable/delay
+- [x] Local Booth Agent authenticated terpisah, mengirim heartbeat, dan menerima command lewat polling HTTPS
+- [x] ONLINE/OFFLINE/BUSY/MAINTENANCE ditampilkan benar; booth unavailable ditolak
+- [x] Command START_SESSION dan normalized events aman terhadap duplikasi
+- [x] Workflow lengkap dapat dijalankan tanpa software photobooth berbayar atau hardware
 
 **Sistem**
 
-- [ ] Double booking mustahil (terbukti test race)
-- [ ] Webhook idempotent dan tervalidasi
-- [ ] Expired booking melepaskan slot
-- [ ] Authorization server-side dan IDOR teruji
+- [x] Double booking mustahil (terbukti test race)
+- [x] Webhook idempotent dan tervalidasi
+- [x] Expired booking melepaskan slot
+- [x] Authorization server-side dan IDOR teruji
 - [ ] Deploy dan smoke test lulus
+
+Catatan checklist MVP lokal: implementasi dan automated test untuk customer,
+admin, sistem, dan photobooth P0 telah diverifikasi. Pembayaran QRIS sandbox
+berhasil menghasilkan QR dan berstatus PENDING, tetapi settlement dari aplikasi
+handphone belum diuji; deployment dan smoke test production juga tetap terbuka.
 
 **Photobooth P1 (bukan syarat P0)**
 
-- [ ] Satu real provider terpilih berdasarkan dokumentasi dan capability resmi
-- [ ] Provider adapter nyata dapat start session dan hasil sesi diketahui melalui dukungan resmi
+- [x] FreeBooth terpilih untuk demo berdasarkan dokumentasi resmi; capability remote dinyatakan unsupported
+- [x] Workflow operator manual tersedia dengan heartbeat booth dan audited manual completion
+- [ ] Validasi FreeBooth, kamera, dan folder tethering pada komputer booth studio

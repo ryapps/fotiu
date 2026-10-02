@@ -81,7 +81,7 @@ async function createBookingFixture(input: {
   return booking;
 }
 
-describe("customer booking cancellation against PostgreSQL", () => {
+describe.sequential("customer booking cancellation against PostgreSQL", () => {
   beforeAll(async () => {
     await prisma.$connect();
     const users = await Promise.all(

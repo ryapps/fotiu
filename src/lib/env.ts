@@ -9,7 +9,8 @@ const envSchema = z
     AUTH_GOOGLE_SECRET: z.string().min(1).optional(),
     APP_URL: z.string().url().default("http://localhost:3000"),
     STUDIO_TIMEZONE: z.string().default("Asia/Jakarta"),
-    SLOT_INTERVAL_MINUTES: z.coerce.number().int().positive().default(30),
+    STUDIO_ADDRESS: z.string().trim().min(1).optional(),
+    STUDIO_CONTACT: z.string().trim().min(1).optional(),
     MIN_LEAD_HOURS: z.coerce.number().int().min(0).default(2),
     MAX_ADVANCE_DAYS: z.coerce.number().int().positive().default(60),
     BOOKING_HOLD_MINUTES: z.coerce.number().int().positive().default(15),
@@ -18,6 +19,12 @@ const envSchema = z
     CRON_SECRET: z.string().min(32).optional(),
     MIDTRANS_SERVER_KEY: z.string().min(1).optional(),
     MIDTRANS_ENVIRONMENT: z.enum(["sandbox", "production"]).default("sandbox"),
+    STORAGE_ENDPOINT: z.string().url().optional(),
+    STORAGE_REGION: z.string().min(1).optional(),
+    STORAGE_BUCKET: z.string().min(1).optional(),
+    STORAGE_ACCESS_KEY_ID: z.string().min(1).optional(),
+    STORAGE_SECRET_ACCESS_KEY: z.string().min(1).optional(),
+    STORAGE_PUBLIC_URL: z.string().url().optional(),
     BOOTH_HEARTBEAT_TIMEOUT_SECONDS: z.coerce
       .number()
       .int()
@@ -31,6 +38,22 @@ const envSchema = z
         code: "custom",
         path: ["AUTH_GOOGLE_SECRET"],
         message: "AUTH_GOOGLE_ID and AUTH_GOOGLE_SECRET must be set together.",
+      });
+    }
+
+    const storageValues = [
+      value.STORAGE_ENDPOINT,
+      value.STORAGE_REGION,
+      value.STORAGE_BUCKET,
+      value.STORAGE_ACCESS_KEY_ID,
+      value.STORAGE_SECRET_ACCESS_KEY,
+      value.STORAGE_PUBLIC_URL,
+    ];
+    if (storageValues.some(Boolean) && storageValues.some((item) => !item)) {
+      context.addIssue({
+        code: "custom",
+        path: ["STORAGE_ENDPOINT"],
+        message: "All STORAGE_* settings must be set together.",
       });
     }
 

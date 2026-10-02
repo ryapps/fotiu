@@ -20,6 +20,23 @@ const rawConfigSchema = z.object({
     .min(0)
     .max(86_400_000)
     .default(3_000),
+  BOOTH_PHOTOBOOTH_APP_URL: z.string().url().optional(),
+  BOOTH_PHOTOBOOTH_APP_ACTION: z
+    .enum(["image", "collage", "animation", "video", "multicamera"])
+    .default("image"),
+  BOOTH_PHOTOBOOTH_APP_ACTION_INDEX: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(99)
+    .default(0),
+  BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN: z.string().min(32).max(256).optional(),
+  BOOTH_PHOTOBOOTH_APP_CALLBACK_PORT: z.coerce
+    .number()
+    .int()
+    .min(1024)
+    .max(65535)
+    .default(43127),
   BOOTH_POLL_INTERVAL_SECONDS: z.coerce
     .number()
     .int()
@@ -42,6 +59,12 @@ export type BoothAgentConfig = {
   mockMode: "success" | "failure" | "unavailable" | "delay";
   mockDelayMs: number;
   mockCompletionDelayMs: number;
+  photoboothAppUrl?: URL;
+  photoboothAppAction?:
+    "image" | "collage" | "animation" | "video" | "multicamera";
+  photoboothAppActionIndex?: number;
+  photoboothAppCallbackToken?: string;
+  photoboothAppCallbackPort?: number;
   pollIntervalMs: number;
 };
 
@@ -55,6 +78,9 @@ export function parseBoothAgentConfig(
     );
   }
   const baseUrl = new URL(parsed.data.BOOTH_AGENT_BASE_URL);
+  const photoboothAppUrl = parsed.data.BOOTH_PHOTOBOOTH_APP_URL
+    ? new URL(parsed.data.BOOTH_PHOTOBOOTH_APP_URL)
+    : undefined;
   const isLocalHttp =
     baseUrl.protocol === "http:" &&
     ["localhost", "127.0.0.1", "::1"].includes(baseUrl.hostname);
@@ -76,6 +102,24 @@ export function parseBoothAgentConfig(
       "BOOTH_HEARTBEAT_TIMEOUT_SECONDS must exceed at least two poll intervals.",
     );
   }
+  if (parsed.data.BOOTH_PROVIDER_KEY === "photobooth_app") {
+    if (!photoboothAppUrl || !parsed.data.BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN) {
+      throw new Error(
+        "Photobooth-App requires BOOTH_PHOTOBOOTH_APP_URL and BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN.",
+      );
+    }
+    if (
+      photoboothAppUrl.username ||
+      photoboothAppUrl.password ||
+      photoboothAppUrl.search ||
+      photoboothAppUrl.hash ||
+      !["localhost", "127.0.0.1", "::1"].includes(photoboothAppUrl.hostname)
+    ) {
+      throw new Error(
+        "BOOTH_PHOTOBOOTH_APP_URL must be a loopback URL without credentials, query, or fragment.",
+      );
+    }
+  }
   return {
     baseUrl,
     deviceId: parsed.data.BOOTH_DEVICE_ID,
@@ -84,6 +128,16 @@ export function parseBoothAgentConfig(
     mockMode: parsed.data.BOOTH_MOCK_MODE,
     mockDelayMs: parsed.data.BOOTH_MOCK_DELAY_MS,
     mockCompletionDelayMs: parsed.data.BOOTH_MOCK_COMPLETION_DELAY_MS,
+    ...(photoboothAppUrl ? { photoboothAppUrl } : {}),
+    photoboothAppAction: parsed.data.BOOTH_PHOTOBOOTH_APP_ACTION,
+    photoboothAppActionIndex: parsed.data.BOOTH_PHOTOBOOTH_APP_ACTION_INDEX,
+    ...(parsed.data.BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN
+      ? {
+          photoboothAppCallbackToken:
+            parsed.data.BOOTH_PHOTOBOOTH_APP_CALLBACK_TOKEN,
+        }
+      : {}),
+    photoboothAppCallbackPort: parsed.data.BOOTH_PHOTOBOOTH_APP_CALLBACK_PORT,
     pollIntervalMs: parsed.data.BOOTH_POLL_INTERVAL_SECONDS * 1000,
   };
 }

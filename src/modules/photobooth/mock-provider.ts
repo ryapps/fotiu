@@ -5,6 +5,10 @@ import {
   type PhotoboothProvider,
   type ProviderSessionStatus,
 } from "@/modules/photobooth/provider";
+import {
+  PhotoboothAppProvider,
+  type PhotoboothAppConfig,
+} from "@/modules/photobooth/photobooth-app-provider";
 
 export type MockProviderMode = "success" | "failure" | "unavailable" | "delay";
 
@@ -109,10 +113,37 @@ export class MockBoothProvider implements PhotoboothProvider {
   }
 }
 
+/**
+ * FreeBooth has no documented remote session-control or status interface.
+ * The Local Booth Agent can still provide booth heartbeat while operators
+ * start FreeBooth locally and record the manual handoff in Fotiu.
+ */
+export class FreeBoothManualProvider implements PhotoboothProvider {
+  readonly capabilities = {
+    supportsStartSession: false,
+    supportsSessionEvents: false,
+    supportsStopSession: false,
+    supportsReprint: false,
+  } as const;
+
+  async startSession(): Promise<{ providerSessionId?: string }> {
+    throw new UnsupportedProviderError("freebooth remote session start");
+  }
+
+  async getStatus(): Promise<ProviderSessionStatus> {
+    return "UNAVAILABLE";
+  }
+}
+
 export function createPhotoboothProvider(
   providerKey: string,
   mockOptions: MockBoothProviderOptions = { mode: "success" },
+  photoboothAppConfig?: PhotoboothAppConfig,
 ): PhotoboothProvider {
   if (providerKey === "mock") return new MockBoothProvider(mockOptions);
+  if (providerKey === "freebooth") return new FreeBoothManualProvider();
+  if (providerKey === "photobooth_app" && photoboothAppConfig) {
+    return new PhotoboothAppProvider(photoboothAppConfig);
+  }
   throw new UnsupportedProviderError(providerKey);
 }

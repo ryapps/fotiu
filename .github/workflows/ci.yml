@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: fotiu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d fotiu_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fotiu_test?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/fotiu_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/fotiu_test?schema=public
+      AUTH_SECRET: fotiu-ci-only-secret-value-at-least-32-characters
+      APP_URL: http://localhost:3100
+      ADMIN_SEED_EMAIL: admin@fotiu.test
+      ADMIN_SEED_PASSWORD: Fotiu-CI-Only-Password-2026
+      STUDIO_TIMEZONE: Asia/Jakarta
+      MIDTRANS_ENVIRONMENT: sandbox
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm audit --omit=dev
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run test:integration
+      - run: npm run test:e2e

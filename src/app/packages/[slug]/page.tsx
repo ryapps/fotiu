@@ -1,11 +1,15 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import Image from "next/image";
-import { notFound } from "next/navigation";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { AvailabilityPicker } from "@/modules/scheduling/availability-picker";
+import {
+  PHOTO_SESSION_BUFFER_MINUTES,
+  PHOTO_SESSION_DURATION_MINUTES,
+} from "@/modules/scheduling/session-duration";
 import { addCalendarDays, getLocalDate } from "@/modules/scheduling/time";
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
 type PackagePageProps = { params: Promise<{ slug: string }> };
 
@@ -44,8 +48,6 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
       name: true,
       description: true,
       price: true,
-      durationMinutes: true,
-      bufferMinutes: true,
       coverImageUrl: true,
     },
   });
@@ -55,14 +57,16 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-12 sm:px-8">
       <Link
-        className="text-sm font-medium text-primary hover:underline"
+        className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
         href="/packages"
       >
-        ← Semua package
+        <span aria-hidden="true">←</span>
+        Semua package
       </Link>
-      <article className="mt-6 grid overflow-hidden rounded-2xl border bg-card md:grid-cols-2">
+
+      <article className="mt-6 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-white via-[#f7faff] to-[#eaf3ff] shadow-[0_26px_70px_rgba(40,80,150,0.08)] md:grid md:grid-cols-2">
         {photoPackage.coverImageUrl ? (
-          <div className="relative min-h-64 w-full md:h-[480px]">
+          <div className="relative min-h-64 w-full md:h-[500px]">
             <Image
               src={photoPackage.coverImageUrl}
               alt={`Foto ${photoPackage.name}`}
@@ -71,53 +75,63 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
               unoptimized
               className="object-cover"
             />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#271b18]/45 via-transparent to-transparent" />
           </div>
         ) : (
-          <div className="flex min-h-64 items-center justify-center bg-secondary text-sm text-muted-foreground">
+          <div className="flex min-h-64 items-center justify-center bg-gradient-to-br from-[#edf5ff] to-[#dfecff] text-sm text-muted-foreground md:h-[500px]">
             Foto package
           </div>
         )}
         <div className="flex flex-col justify-center p-6 sm:p-9">
-          <p className="text-sm font-medium text-primary">Sesi foto Fotiu</p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          <span className="feature-badge w-fit">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Sesi foto Fotiu
+          </span>
+          <h1 className="mt-4 text-3xl font-semibold tracking-[-0.06em] text-foreground sm:text-4xl">
             {photoPackage.name}
           </h1>
-          <p className="mt-4 whitespace-pre-wrap leading-7 text-muted-foreground">
+          <p className="mt-4 whitespace-pre-wrap text-base leading-7 text-muted-foreground">
             {photoPackage.description}
           </p>
-          <dl className="mt-8 grid grid-cols-2 gap-4 rounded-lg bg-secondary/60 p-4">
+          <dl className="mt-8 grid grid-cols-2 gap-4 rounded-[1.5rem] border border-primary/10 bg-white/80 p-4 shadow-[0_10px_24px_rgba(37,74,138,0.05)]">
             <div>
-              <dt className="text-xs text-muted-foreground">Harga</dt>
-              <dd className="mt-1 font-semibold">
+              <dt className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Harga
+              </dt>
+              <dd className="mt-2 text-lg font-semibold text-foreground">
                 {formatRupiah(photoPackage.price)}
               </dd>
             </div>
             <div>
-              <dt className="text-xs text-muted-foreground">Durasi sesi</dt>
-              <dd className="mt-1 font-semibold">
-                {photoPackage.durationMinutes} menit
+              <dt className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Durasi
+              </dt>
+              <dd className="mt-2 text-lg font-semibold text-foreground">
+                {PHOTO_SESSION_DURATION_MINUTES} menit
               </dd>
             </div>
-            {photoPackage.bufferMinutes > 0 && (
-              <div>
-                <dt className="text-xs text-muted-foreground">
+            {PHOTO_SESSION_BUFFER_MINUTES > 0 && (
+              <div className="col-span-2">
+                <dt className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                   Waktu persiapan
                 </dt>
-                <dd className="mt-1 font-semibold">
-                  {photoPackage.bufferMinutes} menit
+                <dd className="mt-2 text-lg font-semibold text-foreground">
+                  {PHOTO_SESSION_BUFFER_MINUTES} menit
                 </dd>
               </div>
             )}
           </dl>
         </div>
       </article>
-      <AvailabilityPicker
-        packageId={photoPackage.id}
-        packageSlug={slug}
-        timeZone={env.STUDIO_TIMEZONE}
-        initialDate={today}
-        maxDate={addCalendarDays(today, env.MAX_ADVANCE_DAYS)}
-      />
+      <div className="mt-8">
+        <AvailabilityPicker
+          packageId={photoPackage.id}
+          packageSlug={slug}
+          timeZone={env.STUDIO_TIMEZONE}
+          initialDate={today}
+          maxDate={addCalendarDays(today, env.MAX_ADVANCE_DAYS)}
+        />
+      </div>
     </main>
   );
 }

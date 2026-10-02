@@ -310,6 +310,8 @@ Jika instruksi ambigu, ajukan satu pertanyaan klarifikasi yang paling penting. J
 18. Agent authentication terpisah dari user authentication. Credential unik per device, dapat dicabut/dirotasi, disimpan hash di cloud, dan tidak pernah dicatat di log.
 19. Jika capability provider tidak tersedia, nyatakan unsupported atau recovery manual yang benar; jangan membuat behavior seolah-olah tersedia.
 20. Untuk perubahan provider abstraction, command, event, heartbeat, idempotency, device auth, race condition, offline behavior, dan state machine, ikuti Learning-First Rule: jelaskan problem, penyebab, opsi, trade-off, dan rekomendasi sebelum implementasi.
+21. Provider manual-only seperti FreeBooth hanya memakai agent untuk heartbeat. Jangan memonitor sesi atau menerima normalized event completion untuk provider itu. Admin hanya mencatat mulai setelah menjalankan software lokal, dan menyelesaikan booking setelah verifikasi fisik melalui manual recovery beralasan.
+22. Photobooth-App berjalan lokal. Adapter hanya memakai REST API action dan Commander lifecycle hooks yang terdokumentasi; callback dibatasi ke loopback + token lokal. Event `finished` boleh menjadi normalized completion setelah callback tervalidasi; command HTTP yang diterima sendiri bukan bukti completion. API booth tidak boleh diekspos ke internet.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

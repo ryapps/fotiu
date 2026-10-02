@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const packageIdSchema = z.string().trim().min(1).max(64);
+export const packageActiveActionSchema = z.object({
+  id: packageIdSchema,
+  isActive: z.enum(["true", "false"]).transform((value) => value === "true"),
+});
+
 const slugSchema = z
   .string()
   .trim()
@@ -14,13 +20,12 @@ export const packageInputSchema = z.object({
   slug: slugSchema,
   name: z.string().trim().min(1, "Nama wajib diisi.").max(120),
   description: z.string().trim().min(1, "Deskripsi wajib diisi.").max(3000),
-  price: z.number().int().min(0, "Harga tidak boleh negatif.").safe(),
-  durationMinutes: z
+  price: z
     .number()
     .int()
-    .positive("Durasi harus lebih dari 0.")
+    .min(20_000, "Harga minimum package Rp20.000.")
+    .max(40_000, "Harga maksimum package Rp40.000.")
     .safe(),
-  bufferMinutes: z.number().int().min(0).safe(),
   coverImageUrl: z.union([z.url(), z.literal("")]).refine((value) => {
     if (value === "") return true;
     const protocol = new URL(value).protocol;
@@ -44,8 +49,6 @@ export function parsePackageFormData(formData: FormData) {
     name: formData.get("name"),
     description: formData.get("description"),
     price: numberField("price"),
-    durationMinutes: numberField("durationMinutes"),
-    bufferMinutes: numberField("bufferMinutes"),
     coverImageUrl: formData.get("coverImageUrl") ?? "",
     sortOrder: numberField("sortOrder"),
   });

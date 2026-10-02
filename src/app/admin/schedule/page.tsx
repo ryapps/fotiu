@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
@@ -9,6 +8,7 @@ import {
 } from "@/modules/scheduling/actions";
 import { getScheduleBlockConflicts } from "@/modules/scheduling/availability-service";
 import { formatStudioDateTime } from "@/modules/scheduling/time";
+import Link from "next/link";
 
 type AdminSchedulePageProps = {
   searchParams: Promise<{ error?: string; saved?: string; block?: string }>;
@@ -53,19 +53,18 @@ export default async function AdminSchedulePage({
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
-      <Link
-        className="text-sm text-muted-foreground hover:underline"
-        href="/admin"
-      >
-        ← Dashboard admin
-      </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        Jam operasional dan blokir
-      </h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Waktu diatur menurut zona {env.STUDIO_TIMEZONE}. Perubahan berlaku pada
-        perhitungan slot berikutnya.
-      </p>
+      <header className="rounded-[1.75rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_20px_54px_rgba(40,80,150,0.07)] sm:p-8">
+        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+          Pengaturan studio
+        </p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+          Jam operasional dan blokir
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Waktu diatur menurut zona {env.STUDIO_TIMEZONE}. Perubahan berlaku
+          pada perhitungan slot berikutnya.
+        </p>
+      </header>
 
       {error && (
         <p
@@ -138,7 +137,7 @@ export default async function AdminSchedulePage({
         </section>
       )}
 
-      <section className="mt-10 rounded-xl border p-5 sm:p-7">
+      <section className="mt-8 rounded-2xl border border-primary/10 bg-white/80 p-5 shadow-[0_12px_28px_rgba(37,74,138,0.04)] sm:p-7">
         <h2 className="text-xl font-semibold">Jam operasional mingguan</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Atur hari buka dan jam studio. Semua tujuh hari disimpan bersama.
@@ -147,7 +146,7 @@ export default async function AdminSchedulePage({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] text-left text-sm">
               <thead>
-                <tr className="border-b text-muted-foreground">
+                <tr className="border-b bg-secondary/50 text-muted-foreground">
                   <th className="pb-3 font-medium">Hari</th>
                   <th className="pb-3 font-medium">Status</th>
                   <th className="pb-3 font-medium">Buka</th>
@@ -225,7 +224,7 @@ export default async function AdminSchedulePage({
         </form>
       </section>
 
-      <section className="mt-8 rounded-xl border p-5 sm:p-7">
+      <section className="mt-6 rounded-2xl border border-primary/10 bg-white/80 p-5 shadow-[0_12px_28px_rgba(37,74,138,0.04)] sm:p-7">
         <h2 className="text-xl font-semibold">Blokir jadwal</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Blokir dapat bertumpang tindih dengan booking. Sistem akan menampilkan
@@ -275,11 +274,11 @@ export default async function AdminSchedulePage({
 
         <h3 className="mt-8 font-semibold">Blokir mendatang</h3>
         {blocks.length === 0 ? (
-          <p className="mt-3 rounded-lg border border-dashed p-5 text-sm text-muted-foreground">
+          <p className="mt-3 rounded-2xl border border-dashed border-primary/20 p-6 text-center text-sm text-muted-foreground">
             Belum ada blokir mendatang.
           </p>
         ) : (
-          <ul className="mt-3 divide-y rounded-lg border">
+          <ul className="mt-3 divide-y divide-border/80 rounded-2xl border border-primary/10">
             {blocks.map((scheduleBlock) => (
               <li
                 key={scheduleBlock.id}
@@ -302,7 +301,7 @@ export default async function AdminSchedulePage({
                 <form action={deleteScheduleBlock}>
                   <input type="hidden" name="id" value={scheduleBlock.id} />
                   <button
-                    className="rounded-md border px-3 py-2 text-sm font-medium hover:bg-secondary"
+                    className="rounded-full border border-primary/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-primary/5"
                     type="submit"
                   >
                     Hapus blokir

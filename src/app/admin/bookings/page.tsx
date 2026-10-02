@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { BookingStatus } from "@prisma/client";
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
 import {
-  localDayBoundsUtc,
   formatStudioDateTime,
+  localDayBoundsUtc,
 } from "@/modules/scheduling/time";
+import { BookingStatus } from "@prisma/client";
+import Link from "next/link";
 
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -99,13 +99,24 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
   };
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
-      <Link
-        className="text-sm text-muted-foreground hover:underline"
-        href="/admin"
-      >
-        ← Dashboard admin
-      </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">Booking</h1>
+      <header className="rounded-[1.75rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_20px_54px_rgba(40,80,150,0.07)] sm:p-8">
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Operasional studio
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              Booking
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Telusuri jadwal, status pembayaran, dan data customer.
+            </p>
+          </div>
+          <p className="rounded-full border border-primary/10 bg-white/80 px-3 py-1.5 text-sm text-muted-foreground">
+            {total} booking
+          </p>
+        </div>
+      </header>
       {hasInputError && (
         <p
           role="alert"
@@ -114,7 +125,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
           Alasan pembatalan wajib diisi (minimal 3 karakter).
         </p>
       )}
-      <form className="mt-6 flex flex-wrap items-end gap-3 rounded-xl border p-4">
+      <form className="mt-6 flex flex-wrap items-end gap-3 rounded-2xl border border-primary/10 bg-white/80 p-4 shadow-[0_12px_28px_rgba(37,74,138,0.04)]">
         <label className="grid gap-1 text-sm">
           Status
           <select
@@ -163,14 +174,14 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
         </button>
       </form>
       {bookings.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+        <p className="mt-6 rounded-2xl border border-dashed border-primary/20 bg-white/60 p-8 text-center text-sm text-muted-foreground">
           Tidak ada booking yang cocok.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-xl border">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-primary/10 bg-white/85 shadow-[0_12px_28px_rgba(37,74,138,0.04)]">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead>
-              <tr className="border-b text-muted-foreground">
+              <tr className="border-b bg-secondary/50 text-muted-foreground">
                 <th className="p-3">Kode / waktu</th>
                 <th className="p-3">Customer</th>
                 <th className="p-3">Package</th>
@@ -180,10 +191,13 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
             </thead>
             <tbody className="divide-y">
               {bookings.map((booking) => (
-                <tr key={booking.id}>
+                <tr
+                  key={booking.id}
+                  className="transition-colors hover:bg-primary/[0.025]"
+                >
                   <td className="p-3">
                     <Link
-                      className="font-medium hover:underline"
+                      className="font-semibold text-primary hover:underline"
                       href={`/admin/bookings/${booking.id}`}
                     >
                       {booking.code}
@@ -202,15 +216,23 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
                     </div>
                   </td>
                   <td className="p-3">{booking.packageNameSnapshot}</td>
-                  <td className="p-3">{booking.status}</td>
+                  <td className="p-3">
+                    <span className="inline-flex rounded-full bg-primary/8 px-2.5 py-1 text-xs font-medium text-primary">
+                      {booking.status}
+                    </span>
+                  </td>
                   <td className="p-3">
                     {booking.payment?.status ?? "—"}
                     {booking.payment?.needsReview && (
-                      <div className="text-amber-700">Perlu review</div>
+                      <div className="mt-1 text-xs font-medium text-sky-700">
+                        Perlu review
+                      </div>
                     )}
                     {booking.status === "CANCELLED" &&
                       booking.payment?.status === "PAID" && (
-                        <div className="text-amber-700">Perlu refund</div>
+                        <div className="mt-1 text-xs font-medium text-sky-700">
+                          Perlu refund
+                        </div>
                       )}
                   </td>
                 </tr>
@@ -229,7 +251,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
         <div className="flex gap-2">
           {page > 1 && (
             <Link
-              className="rounded-md border px-3 py-2"
+              className="rounded-full border border-primary/15 bg-white px-4 py-2 font-medium transition-colors hover:bg-primary/5"
               href={filterHref(page - 1)}
             >
               Sebelumnya
@@ -237,7 +259,7 @@ export default async function AdminBookingsPage({ searchParams }: Props) {
           )}
           {page < pages && (
             <Link
-              className="rounded-md border px-3 py-2"
+              className="rounded-full border border-primary/15 bg-white px-4 py-2 font-medium transition-colors hover:bg-primary/5"
               href={filterHref(page + 1)}
             >
               Berikutnya

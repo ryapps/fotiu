@@ -28,6 +28,7 @@ const errorMessages: Record<string, string> = {
     "Anda sudah memiliki jumlah booking menunggu pembayaran maksimum.",
   not_found: "Package tidak lagi tersedia.",
   invalid: "Data booking tidak valid. Silakan pilih slot kembali.",
+  rate_limited: "Terlalu banyak percobaan booking. Tunggu sebentar lalu coba lagi.",
 };
 
 export default async function BookPage({
@@ -53,8 +54,6 @@ export default async function BookPage({
       name: true,
       description: true,
       price: true,
-      durationMinutes: true,
-      bufferMinutes: true,
     },
   });
   if (!photoPackage) notFound();

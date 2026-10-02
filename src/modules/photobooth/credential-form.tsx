@@ -5,6 +5,7 @@ import {
   manageBoothCredentialAction,
   type BoothCredentialActionState,
 } from "@/modules/photobooth/admin-actions";
+import { setBoothMaintenanceAction } from "@/modules/photobooth/actions";
 
 const initialState: BoothCredentialActionState = {};
 const inputClass =
@@ -59,7 +60,16 @@ export function CreateBoothForm() {
             required
           />
         </label>
-        <input type="hidden" name="providerKey" value="mock" />
+        <label className="text-sm">
+          Provider booth
+          <select className={inputClass} name="providerKey" defaultValue="mock">
+            <option value="mock">Mock (otomatis untuk demo alur)</option>
+            <option value="freebooth">FreeBooth (operator manual)</option>
+            <option value="photobooth_app">
+              Photobooth-App (integrasi lokal)
+            </option>
+          </select>
+        </label>
         <div className="sm:col-span-2">
           <button
             className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
@@ -75,13 +85,40 @@ export function CreateBoothForm() {
   );
 }
 
-export function BoothCredentialControls({ boothId }: { boothId: string }) {
+export function BoothCredentialControls({
+  boothId,
+  providerKey,
+}: {
+  boothId: string;
+  providerKey: string;
+}) {
   const [state, action, pending] = useActionState(
     manageBoothCredentialAction,
     initialState,
   );
   return (
     <div className="flex flex-wrap gap-2">
+      <form action={action} className="flex items-center gap-2">
+        <input type="hidden" name="operation" value="provider" />
+        <input type="hidden" name="boothId" value={boothId} />
+        <select
+          aria-label="Provider booth"
+          className="h-10 rounded-md border bg-background px-3 text-sm"
+          defaultValue={providerKey}
+          name="providerKey"
+        >
+          <option value="mock">Mock</option>
+          <option value="freebooth">FreeBooth manual</option>
+          <option value="photobooth_app">Photobooth-App</option>
+        </select>
+        <button
+          className="rounded-md border px-3 py-2 text-sm hover:bg-secondary disabled:opacity-50"
+          disabled={pending}
+          type="submit"
+        >
+          Ganti provider
+        </button>
+      </form>
       <form action={action}>
         <input type="hidden" name="operation" value="rotate" />
         <input type="hidden" name="boothId" value={boothId} />
@@ -106,5 +143,26 @@ export function BoothCredentialControls({ boothId }: { boothId: string }) {
       </form>
       <Result state={state} />
     </div>
+  );
+}
+
+export function BoothMaintenanceControl({
+  boothId,
+  isMaintenance,
+}: {
+  boothId: string;
+  isMaintenance: boolean;
+}) {
+  return (
+    <form action={setBoothMaintenanceAction}>
+      <input type="hidden" name="boothId" value={boothId} />
+      <input type="hidden" name="enabled" value={String(!isMaintenance)} />
+      <button
+        className="rounded-md border px-3 py-2 text-sm hover:bg-secondary"
+        type="submit"
+      >
+        {isMaintenance ? "Akhiri maintenance" : "Aktifkan maintenance"}
+      </button>
+    </form>
   );
 }

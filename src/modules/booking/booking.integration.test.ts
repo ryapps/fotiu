@@ -9,6 +9,10 @@ import { createBookingForCustomer } from "@/modules/booking/create-booking";
 import { expireStaleHolds } from "@/modules/booking/expiry";
 import { transitionBooking } from "@/modules/booking/state-machine";
 import {
+  markPaymentRefundedAsAdmin,
+  rescheduleBookingAsAdmin,
+} from "@/modules/booking/admin-operations";
+import {
   addCalendarDays,
   getLocalDate,
   localDateTimeToUtc,
@@ -17,7 +21,7 @@ import {
 
 const token = randomUUID();
 const now = new Date();
-const dates = [20, 21, 22].map((offset) =>
+const dates = [25, 26, 27, 28].map((offset) =>
   addCalendarDays(getLocalDate(now, env.STUDIO_TIMEZONE), offset),
 );
 const weekdays = [...new Set(dates.map(weekdayForLocalDate))];
@@ -34,6 +38,7 @@ let customerB = "";
 let customerC = "";
 let customerD = "";
 let customerE = "";
+let adminId = "";
 const at = (dateIndex: number, time: string) =>
   localDateTimeToUtc(`${dates[dateIndex]}T${time}`, env.STUDIO_TIMEZONE);
 
@@ -47,6 +52,34 @@ async function makeUser(label: string) {
   });
   userIds.push(user.id);
   return user.id;
+}
+
+async function makeConfirmedBooking(userId: string, startAt: Date) {
+  const photoPackage = await prisma.package.findUniqueOrThrow({ where: { id: packageId } });
+  const booking = await prisma.booking.create({
+    data: {
+      code: `reschedule-flow-${token}-${startAt.getTime()}`,
+      userId,
+      packageId,
+      packageNameSnapshot: photoPackage.name,
+      priceSnapshot: photoPackage.price,
+      startAt,
+      endAt: new Date(startAt.getTime() + 60 * 60_000),
+      status: "CONFIRMED",
+      payment: {
+        create: {
+          provider: "midtrans",
+          providerOrderId: `reschedule-flow-${token}-${startAt.getTime()}`,
+          amount: photoPackage.price,
+          status: "PAID",
+          paidAt: now,
+        },
+      },
+    },
+    select: { id: true, startAt: true, endAt: true },
+  });
+  bookingIds.push(booking.id);
+  return booking;
 }
 
 describe("booking creation and expiry against PostgreSQL", () => {
@@ -82,6 +115,14 @@ describe("booking creation and expiry against PostgreSQL", () => {
     customerC = await makeUser("C");
     customerD = await makeUser("D");
     customerE = await makeUser("E");
+    const admin = await prisma.admin.create({
+      data: {
+        email: `booking-${token}@admin.example.test`,
+        name: "Booking Integration Admin",
+        passwordHash: "test-only-hash",
+      },
+    });
+    adminId = admin.id;
     const photoPackage = await prisma.package.create({
       data: {
         slug: `booking-${token}`,
@@ -115,6 +156,7 @@ describe("booking creation and expiry against PostgreSQL", () => {
       await prisma.package.deleteMany({ where: { id: { in: packageIds } } });
     if (userIds.length)
       await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    if (adminId) await prisma.admin.delete({ where: { id: adminId } });
     for (const [weekday, hours] of originalHours) {
       if (hours)
         await prisma.operatingHour.upsert({
@@ -139,7 +181,7 @@ describe("booking creation and expiry against PostgreSQL", () => {
     expect(result.booking.status).toBe("WAITING_PAYMENT");
     expect(result.booking.priceSnapshot).toBe(123_000);
     expect(result.booking.startAt).toEqual(at(0, "10:00"));
-    expect(result.booking.endAt).toEqual(at(0, "11:00"));
+    expect(result.booking.endAt).toEqual(at(0, "10:12"));
     expect(result.booking.holdExpiresAt).toEqual(
       new Date(now.getTime() + env.BOOKING_HOLD_MINUTES * 60_000),
     );
@@ -251,6 +293,132 @@ describe("booking creation and expiry against PostgreSQL", () => {
     const rejected = results.find((result) => !result.ok);
     if (rejected && !rejected.ok)
       expect(rejected.code, JSON.stringify(results)).toBe("HOLD_LIMIT");
+  });
+
+  it("allows only one concurrent reschedule into the same slot", async () => {
+    const photoPackage = await prisma.package.findUniqueOrThrow({ where: { id: packageId } });
+    const sources = [at(0, "12:00"), at(1, "12:00")];
+    const users = [customerA, customerB];
+    const bookings = await Promise.all(sources.map((startAt, index) =>
+      prisma.booking.create({
+        data: {
+          code: `reschedule-${token}-${index}`,
+          userId: users[index],
+          packageId,
+          packageNameSnapshot: photoPackage.name,
+          priceSnapshot: photoPackage.price,
+          startAt,
+          endAt: new Date(startAt.getTime() + 60 * 60_000),
+          status: "CONFIRMED",
+          payment: { create: {
+            provider: "midtrans",
+            providerOrderId: `reschedule-${token}-${index}`,
+            amount: photoPackage.price,
+            status: "PAID",
+            paidAt: now,
+          } },
+        },
+        select: { id: true, startAt: true },
+      }),
+    ));
+    bookingIds.push(...bookings.map(({ id }) => id));
+    const target = at(2, "12:00");
+    const results = await Promise.all(bookings.map((booking) =>
+      rescheduleBookingAsAdmin({
+        bookingId: booking.id,
+        newStartAt: `${dates[2]}T12:00`,
+        expectedStartAt: booking.startAt,
+      }, now),
+    ));
+    expect(results.filter((result) => result.ok)).toHaveLength(1);
+    expect(results.filter((result) => !result.ok)).toHaveLength(1);
+    const overlapping = await prisma.booking.count({
+      where: { startAt: target, status: "CONFIRMED" },
+    });
+    expect(overlapping).toBe(1);
+  });
+
+  it("reschedules to free slots, rejects occupied slots without mutation, and allows partial self-overlap", async () => {
+    const emptySource = await makeConfirmedBooking(customerC, at(2, "13:00"));
+    const emptyResult = await rescheduleBookingAsAdmin({
+      bookingId: emptySource.id,
+      newStartAt: `${dates[2]}T14:00`,
+      expectedStartAt: emptySource.startAt,
+    }, now);
+    expect(emptyResult).toEqual({ ok: true });
+    await expect(prisma.booking.findUniqueOrThrow({ where: { id: emptySource.id } }))
+      .resolves.toMatchObject({ startAt: at(2, "14:00"), endAt: at(2, "14:12") });
+
+    const occupiedSource = await makeConfirmedBooking(customerD, at(1, "13:00"));
+    await makeConfirmedBooking(customerE, at(1, "14:00"));
+    const occupiedResult = await rescheduleBookingAsAdmin({
+      bookingId: occupiedSource.id,
+      newStartAt: `${dates[1]}T14:00`,
+      expectedStartAt: occupiedSource.startAt,
+    }, now);
+    expect(occupiedResult).toEqual({ ok: false, code: "CONFLICT" });
+    await expect(prisma.booking.findUniqueOrThrow({ where: { id: occupiedSource.id } }))
+      .resolves.toMatchObject({ startAt: occupiedSource.startAt, endAt: occupiedSource.endAt });
+
+    const overlapSource = await makeConfirmedBooking(customerB, at(3, "13:00"));
+    const overlapResult = await rescheduleBookingAsAdmin({
+      bookingId: overlapSource.id,
+      newStartAt: `${dates[3]}T13:24`,
+      expectedStartAt: overlapSource.startAt,
+    }, now);
+    expect(overlapResult).toEqual({ ok: true });
+    await expect(prisma.booking.findUniqueOrThrow({ where: { id: overlapSource.id } }))
+      .resolves.toMatchObject({ startAt: at(3, "13:24"), endAt: at(3, "13:36") });
+  });
+
+  it("records manual refunds only for PAID payments on cancelled bookings and audits the admin", async () => {
+    const photoPackage = await prisma.package.findUniqueOrThrow({ where: { id: packageId } });
+    const cancelled = await prisma.booking.create({
+      data: {
+        code: `refund-${token}`,
+        userId: customerA,
+        packageId,
+        packageNameSnapshot: photoPackage.name,
+        priceSnapshot: photoPackage.price,
+        startAt: at(0, "10:00"),
+        endAt: at(0, "11:00"),
+        status: "CANCELLED",
+        payment: {
+          create: {
+            provider: "midtrans",
+            providerOrderId: `refund-${token}`,
+            amount: photoPackage.price,
+            status: "PAID",
+            paidAt: now,
+          },
+        },
+      },
+      include: { payment: true },
+    });
+    bookingIds.push(cancelled.id);
+    const payment = cancelled.payment;
+    expect(payment).not.toBeNull();
+    if (!payment) return;
+
+    expect(await markPaymentRefundedAsAdmin({
+      paymentId: payment.id,
+      adminId,
+      reason: "Refund transfer ref RF-2026-001",
+      now,
+    })).toEqual({ ok: true });
+    expect(await markPaymentRefundedAsAdmin({
+      paymentId: payment.id,
+      adminId,
+      reason: "Duplicate request",
+      now,
+    })).toEqual({ ok: false, code: "INVALID_STATE" });
+    await expect(prisma.payment.findUniqueOrThrow({ where: { id: payment.id } }))
+      .resolves.toMatchObject({
+        status: "REFUNDED",
+        refundedAt: now,
+        refundReason: "Refund transfer ref RF-2026-001",
+        refundedByAdminId: adminId,
+      });
   });
 
   it("makes repeated expiry sweeps idempotent", async () => {

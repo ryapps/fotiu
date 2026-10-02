@@ -1,10 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
+import { BookingStatus } from "@prisma/client";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { allowAgentRequest } from "@/modules/photobooth/agent-rate-limit";
 import { parseAgentJson } from "@/modules/photobooth/agent-payload";
 import { authenticateBoothDevice } from "@/modules/photobooth/device-auth";
+import { transitionPhotoSession } from "@/modules/photobooth/session-state";
+import { transitionBooking } from "@/modules/booking/state-machine";
 
 export const dynamic = "force-dynamic";
 
@@ -58,13 +61,14 @@ export async function POST(request: Request) {
         Array<{
           id: string;
           status: string;
+          providerKey: string;
           createdAt: Date;
           bookingStatus: string;
           startAt: Date;
           paymentStatus: string | null;
         }>
       >`
-      SELECT session."id", session."status", session."createdAt", booking."status" AS "bookingStatus",
+      SELECT session."id", session."status", session."providerKey", session."createdAt", booking."status" AS "bookingStatus",
         booking."startAt", payment."status" AS "paymentStatus"
       FROM "photo_sessions" session
       JOIN "bookings" booking ON booking."id" = session."bookingId"
@@ -74,13 +78,19 @@ export async function POST(request: Request) {
     `;
       const session = sessions[0];
       if (!session) return { ok: false as const, code: "NOT_FOUND" as const };
+      if (session.providerKey === "freebooth") {
+        return {
+          ok: false as const,
+          code: "UNSUPPORTED_PROVIDER_EVENT" as const,
+        };
+      }
       if (occurredAt.getTime() < session.createdAt.getTime() - 60_000) {
         return { ok: false as const, code: "INVALID_TIMESTAMP" as const };
       }
 
       const inserted = await tx.$queryRaw<Array<{ id: string }>>`
       INSERT INTO "booth_events" ("id", "eventId", "boothId", "photoSessionId", "type", "occurredAt", "receivedAt")
-      VALUES (${randomUUID()}, ${parsed.data.eventId}, ${booth.id}, ${session.id}, ${parsed.data.type}, ${occurredAt}, ${now})
+      VALUES (${randomUUID()}, ${parsed.data.eventId}, ${booth.id}, ${session.id}, ${parsed.data.type}::"BoothEventType", ${occurredAt}, ${now})
       ON CONFLICT ("eventId") DO NOTHING
       RETURNING "id"
     `;
@@ -100,33 +110,38 @@ export async function POST(request: Request) {
         return { ok: false as const, code: "EVENT_ID_CONFLICT" as const };
       }
 
-      if (
-        parsed.data.type === "SESSION_STARTED" &&
-        session.status === "STARTING"
-      ) {
+      const nextStatus = transitionPhotoSession(
+        session.status as Parameters<typeof transitionPhotoSession>[0],
+        parsed.data.type,
+      );
+      if (!nextStatus) {
+        return { ok: true as const, duplicate: false, ignored: true };
+      }
+
+      if (nextStatus === "ACTIVE") {
         await tx.$executeRaw`UPDATE "photo_sessions" SET "status" = 'ACTIVE', "startedAt" = ${now}, "updatedAt" = ${now} WHERE "id" = ${session.id} AND "status" = 'STARTING'`;
         return { ok: true as const, duplicate: false };
       }
 
-      if (
-        parsed.data.type === "SESSION_COMPLETED" &&
-        ["ACTIVE", "PROCESSING"].includes(session.status)
-      ) {
+      if (nextStatus === "COMPLETED") {
         await tx.$executeRaw`UPDATE "photo_sessions" SET "status" = 'COMPLETED', "completedAt" = ${now}, "completionSource" = 'PROVIDER_EVENT', "updatedAt" = ${now} WHERE "id" = ${session.id} AND "status" IN ('ACTIVE', 'PROCESSING')`;
         if (
           session.bookingStatus === "CONFIRMED" &&
           session.paymentStatus === "PAID" &&
           now >= session.startAt
         ) {
-          await tx.$executeRaw`UPDATE "bookings" SET "status" = 'COMPLETED', "completedAt" = ${now}, "updatedAt" = ${now} WHERE "id" = ${owner[0].bookingId} AND "status" = 'CONFIRMED' AND "startAt" <= ${now}`;
+          await transitionBooking(
+            tx,
+            owner[0].bookingId,
+            BookingStatus.CONFIRMED,
+            BookingStatus.COMPLETED,
+            { completedAt: now },
+          );
         }
         return { ok: true as const, duplicate: false };
       }
 
-      if (
-        parsed.data.type === "SESSION_FAILED" &&
-        ["STARTING", "ACTIVE", "PROCESSING"].includes(session.status)
-      ) {
+      if (nextStatus === "FAILED") {
         await tx.$executeRaw`UPDATE "photo_sessions" SET "status" = 'FAILED', "failedAt" = ${now}, "updatedAt" = ${now} WHERE "id" = ${session.id} AND "status" IN ('STARTING', 'ACTIVE', 'PROCESSING')`;
         await tx.$executeRaw`UPDATE "booths" SET "isMaintenance" = true, "updatedAt" = ${now} WHERE "id" = ${booth.id}`;
         return { ok: true as const, duplicate: false };

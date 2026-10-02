@@ -6,9 +6,10 @@ import { prisma } from "@/lib/prisma";
 import { expireStaleHolds } from "@/modules/booking/expiry";
 import { getPackageAvailabilityWithClient } from "@/modules/scheduling/availability-service";
 import { getLocalDate } from "@/modules/scheduling/time";
+import { consumeRateLimit } from "@/modules/security/rate-limit";
 
 export type BookingErrorCode =
-  "NOT_FOUND" | "HOLD_LIMIT" | "CONFLICT" | "INVALID";
+  "NOT_FOUND" | "HOLD_LIMIT" | "CONFLICT" | "INVALID" | "RATE_LIMITED";
 
 export class BookingRuleError extends Error {
   constructor(
@@ -53,6 +54,9 @@ export async function createBookingForCustomer(
   input: CreateBookingInput,
   now = new Date(),
 ) {
+  if (!(await consumeRateLimit("createBooking", userId, now))) {
+    return { ok: false as const, code: "RATE_LIMITED" as const, packageSlug: null };
+  }
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const code = generateBookingCode(now);
 

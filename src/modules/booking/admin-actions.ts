@@ -3,11 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/modules/auth/guards";
-import { cancelBookingAsAdmin } from "@/modules/booking/admin-operations";
-import { rescheduleBookingAsAdmin } from "@/modules/booking/admin-operations";
+import {
+  cancelBookingAsAdmin,
+  markPaymentRefundedAsAdmin,
+  rescheduleBookingAsAdmin,
+} from "@/modules/booking/admin-operations";
 import {
   adminCancelBookingInputSchema,
   adminRescheduleBookingInputSchema,
+  adminMarkRefundedInputSchema,
 } from "@/modules/booking/schema";
 
 export async function cancelBookingAdminAction(
@@ -33,6 +37,7 @@ export async function cancelBookingAdminAction(
   const query = new URLSearchParams({ cancelled: "1" });
   if (result.needsRefund) query.set("refund", "required");
   if (result.providerCancelFailed) query.set("providerCancel", "failed");
+  if (result.sessionStillActive) query.set("session", "continues");
   redirect(`/admin/bookings/${parsed.data.bookingId}?${query.toString()}`);
 }
 
@@ -61,4 +66,28 @@ export async function rescheduleBookingAdminAction(
   revalidatePath("/admin/calendar");
   if (!result.ok) redirect(`${detailPath}?error=${result.code.toLowerCase()}`);
   redirect(`${detailPath}?rescheduled=1`);
+}
+
+export async function markPaymentRefundedAdminAction(
+  formData: FormData,
+): Promise<never> {
+  const { adminId } = await requireAdmin();
+  const parsed = adminMarkRefundedInputSchema.safeParse({
+    paymentId: formData.get("paymentId"),
+    reason: formData.get("reason"),
+  });
+  const rawId = formData.get("bookingId");
+  const detailPath =
+    typeof rawId === "string" && rawId.length <= 64
+      ? `/admin/bookings/${encodeURIComponent(rawId)}`
+      : "/admin/bookings";
+  if (!parsed.success) redirect(`${detailPath}?error=refund_invalid_input`);
+  const result = await markPaymentRefundedAsAdmin({
+    ...parsed.data,
+    adminId,
+  });
+  revalidatePath("/admin/bookings");
+  revalidatePath(detailPath);
+  if (!result.ok) redirect(`${detailPath}?error=refund_${result.code.toLowerCase()}`);
+  redirect(`${detailPath}?refunded=1`);
 }

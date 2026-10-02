@@ -22,7 +22,7 @@ async function main() {
       "Webhook simulation is restricted to local sandbox configuration.",
     );
   }
-  if (!env.MIDTRANS_SERVER_KEY) {
+  if (!env.MIDTRANS_SERVER_KEY) { 
     throw new Error(
       "Set MIDTRANS_SERVER_KEY in .env before simula  ting a webhook.",
     );

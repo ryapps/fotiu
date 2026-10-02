@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: StatusRouteProps) {
         payment: { select: { status: true } },
       },
     });
-  });
+  }, { maxWait: 15_000, timeout: 15_000 });
   if (!booking) {
     return NextResponse.json({ ok: false, code: "NOT_FOUND" }, { status: 404 });
   }

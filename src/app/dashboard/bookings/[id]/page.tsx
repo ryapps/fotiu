@@ -13,6 +13,7 @@ import {
 import { formatStudioDateTime } from "@/modules/scheduling/time";
 import { createPaymentAction } from "@/modules/payment/actions";
 import { PaymentStatusPoller } from "@/modules/payment/payment-status-poller";
+import { SandboxQrSimulator } from "@/modules/payment/sandbox-qr-simulator";
 
 type BookingDetailProps = {
   params: Promise<{ id: string }>;
@@ -127,9 +128,11 @@ export default async function BookingDetailPage({
             ? "Midtrans belum dikonfigurasi. Atur MIDTRANS_SERVER_KEY di environment server."
             : query.paymentError === "expired"
               ? "Waktu pembayaran sudah habis. Booking telah dilepas."
-              : query.paymentError === "not_found"
-                ? "Booking tidak ditemukan."
-                : "QRIS belum berhasil dibuat. Coba lagi selama waktu booking masih tersedia."}
+              : query.paymentError === "rate_limited"
+                ? "Terlalu banyak permintaan pembayaran. Tunggu sebentar lalu coba lagi."
+                : query.paymentError === "not_found"
+                  ? "Booking tidak ditemukan."
+                  : "QRIS belum berhasil dibuat. Coba lagi selama waktu booking masih tersedia."}
         </p>
       )}
       {query.cancelled === "1" && booking.status === "CANCELLED" && (
@@ -225,6 +228,9 @@ export default async function BookingDetailPage({
                 <p className="text-center text-sm text-muted-foreground">
                   Scan QRIS sebelum waktu pembayaran habis.
                 </p>
+                {env.MIDTRANS_ENVIRONMENT === "sandbox" && (
+                  <SandboxQrSimulator qrImageUrl={booking.payment.qrImageUrl} />
+                )}
               </div>
             ) : booking.payment?.status === "UNPAID" ||
               booking.payment?.status === "PENDING" ? (

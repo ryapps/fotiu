@@ -9,6 +9,7 @@ import {
   createQris,
   PaymentProviderError,
 } from "@/modules/payment/provider";
+import { consumeRateLimit } from "@/modules/security/rate-limit";
 
 type PaymentResult = {
   id: string;
@@ -26,7 +27,8 @@ type CreatePaymentOutcome =
         | "INVALID_STATE"
         | "EXPIRED"
         | "NOT_CONFIGURED"
-        | "PROVIDER";
+        | "PROVIDER"
+        | "RATE_LIMITED";
     };
 
 async function lockBookingThenPayment(
@@ -104,6 +106,8 @@ export async function createPaymentForCustomer(
     { maxWait: 15_000, timeout: 15_000 },
   );
   if (!initial.ok) return initial;
+  if (!(await consumeRateLimit("createPayment", userId)))
+    return { ok: false, code: "RATE_LIMITED" };
   const booking = initial.booking;
 
   const serverKey = env.MIDTRANS_SERVER_KEY;

@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
+import Link from "next/link";
 
 export default async function AdminCustomersPage({
   searchParams,
@@ -43,20 +43,31 @@ export default async function AdminCustomersPage({
     `/admin/customers?${new URLSearchParams({ ...(query ? { q: query } : {}), page: String(target) }).toString()}`;
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
-      <Link
-        className="text-sm text-muted-foreground hover:underline"
-        href="/admin"
-      >
-        ← Dashboard admin
-      </Link>
-      <h1 className="mt-3 text-3xl font-semibold tracking-tight">Customer</h1>
-      <form className="mt-5 flex gap-3">
+      <header className="rounded-[1.75rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_20px_54px_rgba(40,80,150,0.07)] sm:p-8">
+        <div className="mt-5 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Relasi pelanggan
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              Customer
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Direktori customer dan riwayat jumlah booking.
+            </p>
+          </div>
+          <p className="rounded-full border border-primary/10 bg-white/80 px-3 py-1.5 text-sm text-muted-foreground">
+            {total} customer
+          </p>
+        </div>
+      </header>
+      <form className="mt-6 flex flex-wrap gap-3 rounded-2xl border border-primary/10 bg-white/80 p-4 shadow-[0_12px_28px_rgba(37,74,138,0.04)]">
         <label className="sr-only" htmlFor="customer-search">
           Cari customer
         </label>
         <input
           id="customer-search"
-          className="w-full max-w-md rounded-md border bg-background px-3 py-2 text-sm"
+          className="w-full max-w-md rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           name="q"
           maxLength={100}
           defaultValue={query}
@@ -70,14 +81,14 @@ export default async function AdminCustomersPage({
         </button>
       </form>
       {customers.length === 0 ? (
-        <p className="mt-6 rounded-lg border border-dashed p-6 text-sm text-muted-foreground">
+        <p className="mt-6 rounded-2xl border border-dashed border-primary/20 bg-white/60 p-8 text-center text-sm text-muted-foreground">
           Tidak ada customer yang cocok.
         </p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-xl border">
+        <div className="mt-6 overflow-x-auto rounded-2xl border border-primary/10 bg-white/85 shadow-[0_12px_28px_rgba(37,74,138,0.04)]">
           <table className="w-full min-w-[600px] text-left text-sm">
             <thead>
-              <tr className="border-b text-muted-foreground">
+              <tr className="border-b bg-secondary/50 text-muted-foreground">
                 <th className="p-3">Nama</th>
                 <th className="p-3">Email</th>
                 <th className="p-3">Telepon</th>
@@ -87,7 +98,10 @@ export default async function AdminCustomersPage({
             </thead>
             <tbody className="divide-y">
               {customers.map((customer) => (
-                <tr key={customer.id}>
+                <tr
+                  key={customer.id}
+                  className="transition-colors hover:bg-primary/[0.025]"
+                >
                   <td className="p-3 font-medium">{customer.name}</td>
                   <td className="p-3">{customer.email}</td>
                   <td className="p-3">{customer.phone ?? "—"}</td>
@@ -109,12 +123,18 @@ export default async function AdminCustomersPage({
         </span>
         <div className="flex gap-2">
           {page > 1 && (
-            <Link className="rounded-md border px-3 py-2" href={href(page - 1)}>
+            <Link
+              className="rounded-full border border-primary/15 bg-white px-4 py-2 font-medium transition-colors hover:bg-primary/5"
+              href={href(page - 1)}
+            >
               Sebelumnya
             </Link>
           )}
           {page < pages && (
-            <Link className="rounded-md border px-3 py-2" href={href(page + 1)}>
+            <Link
+              className="rounded-full border border-primary/15 bg-white px-4 py-2 font-medium transition-colors hover:bg-primary/5"
+              href={href(page + 1)}
+            >
               Berikutnya
             </Link>
           )}

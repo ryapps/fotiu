@@ -1,7 +1,11 @@
-import Link from "next/link";
+import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
 import { deletePackage, setPackageActive } from "@/modules/packages/actions";
-import { prisma } from "@/lib/prisma";
+import {
+  PHOTO_SESSION_BUFFER_MINUTES,
+  PHOTO_SESSION_DURATION_MINUTES,
+} from "@/modules/scheduling/session-duration";
+import Link from "next/link";
 
 type AdminPackagesPageProps = {
   searchParams: Promise<{ error?: string; saved?: string }>;
@@ -36,15 +40,12 @@ export default async function AdminPackagesPage({
 
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4 rounded-[1.75rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_20px_54px_rgba(40,80,150,0.07)] sm:p-8">
         <div>
-          <Link
-            className="text-sm text-muted-foreground hover:underline"
-            href="/admin"
-          >
-            ← Dashboard admin
-          </Link>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+            Katalog studio
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Kelola package
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
@@ -52,12 +53,12 @@ export default async function AdminPackagesPage({
           </p>
         </div>
         <Link
-          className="inline-flex h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+          className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5 hover:opacity-90"
           href="/admin/packages/new"
         >
           Tambah package
         </Link>
-      </div>
+      </header>
 
       {error && (
         <p
@@ -77,14 +78,14 @@ export default async function AdminPackagesPage({
       )}
 
       {packages.length === 0 ? (
-        <section className="mt-8 rounded-xl border border-dashed p-8 text-center">
+        <section className="mt-8 rounded-2xl border border-dashed border-primary/20 bg-white/60 p-8 text-center">
           <h2 className="font-semibold">Belum ada package</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Buat package pertama untuk mulai mengisi katalog.
           </p>
         </section>
       ) : (
-        <div className="mt-8 overflow-x-auto rounded-xl border">
+        <div className="mt-8 overflow-x-auto rounded-2xl border border-primary/10 bg-white/85 shadow-[0_12px_28px_rgba(37,74,138,0.04)]">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-secondary/60 text-muted-foreground">
               <tr>
@@ -97,7 +98,10 @@ export default async function AdminPackagesPage({
             </thead>
             <tbody className="divide-y">
               {packages.map((photoPackage) => (
-                <tr key={photoPackage.id}>
+                <tr
+                  key={photoPackage.id}
+                  className="transition-colors hover:bg-primary/[0.025]"
+                >
                   <td className="px-4 py-4">
                     <div className="font-medium">{photoPackage.name}</div>
                     <div className="mt-1 text-xs text-muted-foreground">
@@ -107,7 +111,8 @@ export default async function AdminPackagesPage({
                   <td className="px-4 py-4">
                     {formatRupiah(photoPackage.price)}
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {photoPackage.durationMinutes} menit
+                      {PHOTO_SESSION_DURATION_MINUTES} menit · jeda{" "}
+                      {PHOTO_SESSION_BUFFER_MINUTES} menit
                     </div>
                   </td>
                   <td className="px-4 py-4">{photoPackage._count.bookings}</td>
@@ -121,7 +126,7 @@ export default async function AdminPackagesPage({
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+                        className="rounded-full border border-primary/15 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-primary/5"
                         href={`/admin/packages/${photoPackage.id}`}
                       >
                         Edit
@@ -138,7 +143,7 @@ export default async function AdminPackagesPage({
                           value={String(!photoPackage.isActive)}
                         />
                         <button
-                          className="rounded-md border px-3 py-1.5 text-xs font-medium hover:bg-secondary"
+                          className="rounded-full border border-primary/15 px-3 py-1.5 text-xs font-medium transition-colors hover:bg-primary/5"
                           type="submit"
                         >
                           {photoPackage.isActive ? "Nonaktifkan" : "Aktifkan"}

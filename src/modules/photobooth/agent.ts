@@ -195,6 +195,7 @@ export function createBoothAgent(input: {
       claimResponseSchema,
     );
     for (const session of claimed.activeSessions) {
+      if (!input.provider.capabilities.supportsStartSession) continue;
       if (!monitored.has(session.photoSessionId)) {
         monitored.set(session.photoSessionId, {
           photoSessionId: session.photoSessionId,
