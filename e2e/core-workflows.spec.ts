@@ -357,9 +357,9 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
       path === "/"
         ? /Abadikan momen[\s\S]*sesi foto[\s\S]*personal\./
         : path === "/gallery"
-          ? "Gallery"
+          ? "Gallery inspirasi"
           : path === "/packages"
-            ? "Pilih sesi foto Anda"
+            ? "Pilih sesi foto yang paling cocok"
             : "Masuk sebagai customer";
     await expect(
       page.getByRole("heading", { level: 1 }),
