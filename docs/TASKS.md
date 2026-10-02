@@ -1017,14 +1017,14 @@ ulang dengan `npm audit --omit=dev` menemukan 0 vulnerabilities.
 Integration runner mengeksekusi file/suite secara berurutan karena fixture DB
 berbagi jadwal dan booth; test request paralel tetap menguji race condition di
 dalam skenario masing-masing.
-Workflow CI
-GitHub Actions menjalankan rangkaian tersebut di PostgreSQL 16 dan Node 24;
-status remote belum dapat diketahui sampai workflow dijalankan pada GitHub.
+Workflow CI GitHub Actions menjalankan rangkaian tersebut di PostgreSQL 16 dan
+Node 24. [Run 37029345913](https://github.com/ryapps/fotiu/actions/runs/37029345913)
+untuk commit `18631d8` lulus pada 2 Okt 2026.
 Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 **Definition of Done**
 
-- [ ] Semua test lulus secara lokal dan di CI (verifikasi lokal 2 Okt 2026: lint, typecheck, build, 57 unit test, 48 integration test, dan 4 E2E test lulus; run remote GitHub menunggu push).
+- [x] Semua test lulus secara lokal dan di CI (verifikasi 2 Okt 2026: lint, typecheck, build, unit test, 48 integration test, dan 4 E2E test lulus; [GitHub Actions run 37029345913](https://github.com/ryapps/fotiu/actions/runs/37029345913) sukses).
 - [x] Prioritas test dari `AGENTS.md` bagian 17 terpenuhi untuk alur booking, authorization, payment webhook, availability, cancellation, dan booth/session.
 - [x] Tidak ada test yang di-skip tanpa alasan tertulis.
 
@@ -1054,11 +1054,13 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 - [ ] Tidak ada secret di repository atau log.
 
 Catatan kesiapan Phase 13: README, migration, CI, dan E2E deployment build
-sudah disiapkan. Aktivasi produksi memerlukan database managed, runtime role
+sudah disiapkan. Project Vercel `ryapps-projects/fotiu` telah dibuat dan disetel
+untuk Next.js; environment variable dan deployment belum dikonfigurasi.
+Aktivasi produksi memerlukan database managed, runtime role
 DML terbatas yang terpisah dari migration role pada `DIRECT_URL`, grant dan TLS
 yang diverifikasi, OAuth redirect production, pilihan sandbox/production
 Midtrans dengan URL webhook,
-bucket S3-compatible dan CORS, project/akses Vercel, domain, serta booth komputer
+bucket S3-compatible dan CORS, domain, serta booth komputer
 studio untuk provision credential dan smoke test. Belum ada demo URL atau
 screenshot deployment. `vercel.json` kini mendaftarkan sweep expiry harian; Vercel
 baru menjalankannya di deployment production dengan `CRON_SECRET` terpasang.
