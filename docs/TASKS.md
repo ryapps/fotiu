@@ -21,7 +21,7 @@
 - [x] Setup ESLint dan Prettier
 - [x] Setup konfigurasi environment (`.env.example`, validasi env dengan Zod saat startup)
 - [x] Setup PostgreSQL lokal untuk development
-- [ ] Buat project database managed (Supabase) untuk preview/production
+- [x] Buat project database managed (Supabase) untuk production; project `fotiu` aktif di Jakarta sejak 2 Okt 2026
 - [x] Setup Prisma dan konfigurasi koneksi database
 - [x] Setup Vitest
 - [x] Struktur folder `src/modules/*` dan `src/lib/*`
@@ -528,7 +528,7 @@ Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), s
 
 **Definition of Done (Phase 6)**
 
-- [ ] Alur sandbox lengkap: booking → QRIS → settlement lewat QRIS Simulator Midtrans → CONFIRMED otomatis. Verifikasi ini dilakukan setelah deployment memiliki URL HTTPS tetap dan Payment Notification URL terdaftar; QR berhasil dibuat, settlement dan webhook nyata belum diuji.
+- [ ] Alur sandbox lengkap: booking → QRIS → settlement lewat QRIS Simulator Midtrans → CONFIRMED otomatis. Deployment sudah memiliki URL HTTPS tetap dan charge baru menambahkan URL webhook melalui `X-Append-Notification`; settlement dan webhook nyata belum diuji.
 - [x] Test webhook (valid, duplikat, invalid, terlambat) lulus.
 - [x] Log webhook tersedia melalui `payment_events` dan tidak menyimpan Server Key.
 
@@ -1032,15 +1032,15 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 ## Phase 13 — Deployment
 
-- [ ] Database produksi dan jalankan migration
-- [ ] Seed admin produksi (password kuat, bukan password seed dev)
+- [x] Database produksi Supabase dan 8 migration diterapkan; role runtime DML terpisah dari role migration
+- [x] Seed admin produksi dengan password acak kuat yang berbeda dari password seed dev
 - [ ] Konfigurasi object storage (bucket, CORS untuk presigned upload)
-- [ ] Deploy ke Vercel dan set environment variable, termasuk mode serta Server Key Midtrans yang sesuai
-- [ ] Domain tetap dan HTTPS pada deployment produksi (`*.vercel.app` cukup untuk demo)
+- [x] Deploy ke Vercel dengan environment produksi, Midtrans sandbox, dan koneksi database runtime terbatas
+- [x] Domain tetap dan HTTPS pada deployment produksi: `https://fotiu.vercel.app`
 - [ ] Konfigurasi OAuth produksi (redirect URI pada domain deployment, consent screen)
-- [ ] Daftarkan Payment Notification URL Midtrans sandbox untuk demo (atau produksi bila memakai pembayaran nyata) pada domain deployment
+- [ ] Pastikan charge QRIS sandbox baru mengirim `X-Append-Notification: https://fotiu.vercel.app/api/webhooks/payment`, lalu verifikasi notifikasi nyata diterima; URL dashboard Midtrans boleh ditambahkan sebagai cadangan
 - [ ] Buat booking baru, selesaikan QRIS sandbox lewat simulator, dan verifikasi notifikasi Midtrans membuat payment PAID serta booking CONFIRMED otomatis
-- [ ] Konfigurasi cron (atau alternatif) untuk sweep expiry
+- [x] Konfigurasi cron harian untuk sweep expiry dan pasang `CRON_SECRET` di Vercel (eksekusi terjadwal pertama belum diamati)
 - [ ] Provision booth device token secara aman dan jalankan Local Booth Agent di komputer studio
 - [ ] Pastikan cloud endpoint HTTPS dapat dijangkau agent melalui koneksi outbound
 - [ ] Smoke test end-to-end di produksi
@@ -1053,18 +1053,15 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 - [ ] Webhook produksi menerima dan memverifikasi event.
 - [ ] Tidak ada secret di repository atau log.
 
-Catatan kesiapan Phase 13: README, migration, CI, dan E2E deployment build
-sudah disiapkan. Project Vercel `ryapps-projects/fotiu` telah dibuat dan disetel
-untuk Next.js; environment variable dan deployment belum dikonfigurasi.
-Aktivasi produksi memerlukan database managed, runtime role
-DML terbatas yang terpisah dari migration role pada `DIRECT_URL`, grant dan TLS
-yang diverifikasi, OAuth redirect production, pilihan sandbox/production
-Midtrans dengan URL webhook,
-bucket S3-compatible dan CORS, domain, serta booth komputer
-studio untuk provision credential dan smoke test. Belum ada demo URL atau
-screenshot deployment. `vercel.json` kini mendaftarkan sweep expiry harian; Vercel
-baru menjalankannya di deployment production dengan `CRON_SECRET` terpasang.
-Jangan mengisi checklist produksi sampai masing-masing integrasi benar-benar diuji.
+Catatan kesiapan Phase 13: `https://fotiu.vercel.app` sudah terdeploy dengan
+Supabase Jakarta, TLS, 8 migration, seed admin, role runtime DML terbatas,
+Midtrans sandbox, dan `CRON_SECRET`. Role `anon`/`authenticated` Supabase tidak
+memiliki hak baca tabel booking. Kelanjutan aktivasi memerlukan OAuth redirect
+production pada Google Cloud, kredensial S3-compatible dan CORS bucket galeri,
+provision booth pada database production, serta smoke test end-to-end. Notifikasi
+Midtrans melalui `X-Append-Notification` untuk charge baru belum dibuktikan lewat
+QRIS Simulator. Screenshot deployment belum ditambahkan. Jangan mengisi checklist
+integrasi sampai masing-masing benar-benar diuji.
 
 ---
 

@@ -79,6 +79,17 @@ function getAuthorization(serverKey: string) {
   return `Basic ${Buffer.from(`${serverKey}:`).toString("base64")}`;
 }
 
+function paymentNotificationHeaders(): Record<string, string> {
+  const appUrl = new URL(env.APP_URL ?? "http://localhost:3000");
+  if (appUrl.protocol !== "https:") return {};
+  return {
+    "X-Append-Notification": new URL(
+      "/api/webhooks/payment",
+      appUrl,
+    ).toString(),
+  };
+}
+
 async function requestMidtrans(
   path: string,
   init: RequestInit,
@@ -251,6 +262,7 @@ export async function createQris(input: {
       "/v2/charge",
       {
         method: "POST",
+        headers: paymentNotificationHeaders(),
         body: JSON.stringify({
           payment_type: "qris",
           qris: { acquirer: "gopay" },

@@ -460,6 +460,8 @@ Urutan dalam transaction pembuatan booking:
 
 Implementasi Core API menggunakan `POST /v2/charge`, `payment_type: "qris"`, dan Basic Auth dengan Server Key. `custom_expiry.order_time` bersama `expiry_duration` dalam menit menjaga QRIS berakhir di batas hold. Gunakan kode booking yang sama sebagai `order_id`; sebelum membuat charge dan setelah timeout, cek `GET /v2/{order_id}/status` untuk memulihkan transaksi pending tanpa charge duplikat. QR image URL diambil dari action `generate-qr-code-v2`/`generate-qr-code` yang host dan path-nya dibatasi ke endpoint QRIS Midtrans.
 
+Pada deployment HTTPS, permintaan charge menambahkan header Midtrans `X-Append-Notification` berisi `${APP_URL}/api/webhooks/payment`. Header ini menambahkan endpoint Fotiu untuk transaksi baru tanpa menimpa URL notifikasi lain di dashboard Midtrans. Pada development HTTP lokal, header tidak dikirim; simulasi webhook atau URL HTTPS publik tetap diperlukan untuk menguji settlement otomatis. Webhook yang diterima tetap harus diverifikasi sebelum status payment berubah.
+
 ```mermaid
 sequenceDiagram
     participant C as Customer

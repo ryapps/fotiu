@@ -74,8 +74,8 @@ Payload sintetis menguji handler aplikasi, tetapi bukan bukti settlement telah
 terjadi pada Midtrans.
 
 Compose hanya menjalankan satu database PostgreSQL untuk development lokal.
-Project managed Supabase belum dikonfigurasi; gunakan database terpisah untuk
-preview dan production, jangan memakai data production secara lokal.
+Project Supabase production sudah tersedia; gunakan database lokal terpisah
+untuk development dan jangan memakai data production secara lokal.
 
 ## Gallery storage
 
@@ -95,7 +95,9 @@ pengaturan agent, dan alur booking.
 
 ## Status deployment
 
-Belum ada URL demo production karena project database managed, konfigurasi
-OAuth/payment/storage produksi, domain, dan deployment Vercel belum tersedia.
-Screenshot di atas hanya pratinjau lokal. Jangan memakai kredensial lokal untuk
-deployment.
+Demo deployment: [fotiu.vercel.app](https://fotiu.vercel.app). Supabase,
+migration, seed admin, dan Midtrans sandbox sudah dikonfigurasi. Login Google
+memerlukan redirect URI production pada Google Cloud; upload galeri memerlukan
+konfigurasi storage. Settlement QRIS lewat webhook Midtrans dan alur agent
+photobooth pada deployment ini masih perlu diverifikasi. Screenshot di atas
+masih pratinjau lokal.
