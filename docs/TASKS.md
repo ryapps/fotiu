@@ -528,7 +528,7 @@ Webhook security, signature/HMAC, idempotency key, row locking (`FOR UPDATE`), s
 
 **Definition of Done (Phase 6)**
 
-- [ ] Alur sandbox lengkap: booking → QRIS → settlement QRIS dari handphone → CONFIRMED otomatis (QR berhasil dibuat; settlement melalui handphone belum diverifikasi).
+- [ ] Alur sandbox lengkap: booking → QRIS → settlement lewat QRIS Simulator Midtrans → CONFIRMED otomatis. Verifikasi ini dilakukan setelah deployment memiliki URL HTTPS tetap dan Payment Notification URL terdaftar; QR berhasil dibuat, settlement dan webhook nyata belum diuji.
 - [x] Test webhook (valid, duplikat, invalid, terlambat) lulus.
 - [x] Log webhook tersedia melalui `payment_events` dan tidak menyimpan Server Key.
 
@@ -542,7 +542,9 @@ masukkan URL gambar QR sandbox ke simulator. Halaman booking kini menampilkan
 URL dan tautan simulator hanya ketika provider disetel ke sandbox. Jangan
 membayar QR sandbox melalui aplikasi bank/e-wallet sungguhan; Midtrans
 memperingatkan dana dapat masuk ke tujuan yang tidak dapat dipulihkan.
-Settlement melalui simulator dan status `CONFIRMED` masih perlu dijalankan.
+Settlement melalui simulator dan status `CONFIRMED` masih perlu dijalankan
+setelah deployment memiliki URL HTTPS tetap. Test webhook lokal tetap menjadi
+bukti sementara untuk handler, bukan bukti notifikasi dari Midtrans.
 
 ---
 
@@ -683,7 +685,7 @@ P1 setelah P0 selesai; jangan menandai P0 belum selesai karena provider nyata be
 - [x] Verifikasi action API dan Commander lifecycle hook dari dokumentasi/source resmi Photobooth-App.
 - [x] Tambahkan adapter action lokal, callback Commander loopback bertoken, pilihan/ganti provider saat booth tidak aktif, dan normalisasi event.
 - [x] Hanya callback `finished` tervalidasi yang menyelesaikan sesi; tanpa callback perlu rekonsiliasi admin.
-- [ ] Jalankan end-to-end Photobooth-App pada komputer booth studio dan validasi kamera/action/Commander callback.
+- [x] Jalankan end-to-end Photobooth-App pada komputer booth studio dan validasi kamera/action/Commander callback (developer melaporkan seluruh alur berhasil pada 2 Okt 2026).
 
 Catatan riset kandidat (30 September 2026):
 
@@ -1022,7 +1024,7 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 **Definition of Done**
 
-- [ ] Semua test lulus secara lokal dan di CI (hasil lokal lulus; run remote GitHub menunggu push).
+- [ ] Semua test lulus secara lokal dan di CI (verifikasi lokal 2 Okt 2026: lint, typecheck, build, 57 unit test, 48 integration test, dan 4 E2E test lulus; run remote GitHub menunggu push).
 - [x] Prioritas test dari `AGENTS.md` bagian 17 terpenuhi untuk alur booking, authorization, payment webhook, availability, cancellation, dan booth/session.
 - [x] Tidak ada test yang di-skip tanpa alasan tertulis.
 
@@ -1032,14 +1034,15 @@ Tidak ditemukan test yang di-skip atau `.only` pada source/test E2E.
 
 - [ ] Database produksi dan jalankan migration
 - [ ] Seed admin produksi (password kuat, bukan password seed dev)
-- [ ] Konfigurasi OAuth produksi (redirect URI, consent screen)
-- [ ] Konfigurasi payment (sandbox atau produksi) dan daftarkan URL webhook produksi
 - [ ] Konfigurasi object storage (bucket, CORS untuk presigned upload)
-- [ ] Deploy ke Vercel dan set semua environment variable
+- [ ] Deploy ke Vercel dan set environment variable, termasuk mode serta Server Key Midtrans yang sesuai
+- [ ] Domain tetap dan HTTPS pada deployment produksi (`*.vercel.app` cukup untuk demo)
+- [ ] Konfigurasi OAuth produksi (redirect URI pada domain deployment, consent screen)
+- [ ] Daftarkan Payment Notification URL Midtrans sandbox untuk demo (atau produksi bila memakai pembayaran nyata) pada domain deployment
+- [ ] Buat booking baru, selesaikan QRIS sandbox lewat simulator, dan verifikasi notifikasi Midtrans membuat payment PAID serta booking CONFIRMED otomatis
 - [ ] Konfigurasi cron (atau alternatif) untuk sweep expiry
 - [ ] Provision booth device token secara aman dan jalankan Local Booth Agent di komputer studio
 - [ ] Pastikan cloud endpoint HTTPS dapat dijangkau agent melalui koneksi outbound
-- [ ] Domain dan HTTPS
 - [ ] Smoke test end-to-end di produksi
 - [x] README: deskripsi proyek, screenshot lokal, dan cara menjalankan lokal
 - [ ] Tambahkan screenshot dan tautan demo setelah deployment tersedia
@@ -1107,8 +1110,9 @@ Jangan mengisi checklist produksi sampai masing-masing integrasi benar-benar diu
 
 Catatan checklist MVP lokal: implementasi dan automated test untuk customer,
 admin, sistem, dan photobooth P0 telah diverifikasi. Pembayaran QRIS sandbox
-berhasil menghasilkan QR dan berstatus PENDING, tetapi settlement dari aplikasi
-handphone belum diuji; deployment dan smoke test production juga tetap terbuka.
+berhasil menghasilkan QR dan berstatus PENDING, tetapi settlement lewat QRIS
+Simulator Midtrans dan notifikasi nyata belum diuji; keduanya dijadwalkan setelah
+deployment memiliki URL HTTPS tetap. Smoke test production juga tetap terbuka.
 
 **Photobooth P1 (bukan syarat P0)**
 

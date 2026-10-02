@@ -80,8 +80,9 @@ recovery beralasan.
 - Token callback berada pada URL query karena Commander mendukung query
   parameters. Ia hanya dikirim ke loopback dan tidak boleh dipakai ulang untuk
   credential lain.
-- Uji end-to-end pada komputer studio masih diperlukan, termasuk kamera,
-  pemilihan action/index, callback Commander, serta retry/recovery.
+- Developer melaporkan uji end-to-end pada komputer studio berhasil pada
+  2 Okt 2026, termasuk kamera, action, dan callback Commander. Catat hasil
+  retry/recovery secara terpisah bila diuji.
 
 Referensi resmi: [Actions dan REST API](https://photobooth-app.org/setup/configuration/actions),
 [Commander](https://photobooth-app.org/setup/configuration/commander),
