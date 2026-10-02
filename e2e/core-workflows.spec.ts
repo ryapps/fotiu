@@ -355,7 +355,7 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
     await expect(page).toHaveURL(/#main-content$/);
     const heading =
       path === "/"
-        ? /Abadikan momen.*sesi foto.*personal\./s
+        ? /Abadikan momen[\s\S]*sesi foto[\s\S]*personal\./
         : path === "/gallery"
           ? "Gallery"
           : path === "/packages"
