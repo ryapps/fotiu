@@ -7,8 +7,8 @@ import { Suspense } from "react";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Package Foto | Fotiu Studio",
-  description: "Jelajahi package sesi foto, durasi, dan harga di Fotiu Studio.",
+  title: "Paket Foto | Fotiu Studio",
+  description: "Jelajahi paket sesi foto, durasi, dan harga di Fotiu Studio.",
 };
 
 function formatRupiah(amount: number) {
@@ -38,7 +38,7 @@ async function ActivePackageGrid() {
       aria-live="polite"
     >
       <h2 className="font-semibold text-foreground">
-        Belum ada package tersedia
+        Belum ada paket tersedia
       </h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Silakan cek kembali nanti.
@@ -63,7 +63,7 @@ async function ActivePackageGrid() {
               </div>
             ) : (
               <div className="flex h-56 items-center justify-center bg-gradient-to-br from-[#edf5ff] to-[#e4efff] text-sm text-muted-foreground">
-                Foto package
+                Foto paket
               </div>
             )}
             <div className="flex flex-1 flex-col p-5">

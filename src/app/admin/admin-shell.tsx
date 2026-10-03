@@ -19,8 +19,8 @@ const navigation = [
   { label: "Booking", href: "/admin/bookings", icon: CalendarDays },
   { label: "Kalender", href: "/admin/calendar", icon: Clock3 },
   { label: "Customer", href: "/admin/customers", icon: UsersRound },
-  { label: "Gallery", href: "/admin/gallery", icon: Images },
-  { label: "Package", href: "/admin/packages", icon: Package },
+  { label: "Galeri", href: "/admin/gallery", icon: Images },
+  { label: "Paket", href: "/admin/packages", icon: Package },
   { label: "Jadwal", href: "/admin/schedule", icon: Clock3 },
   { label: "Photobooth", href: "/admin/booths", icon: Camera },
 ];

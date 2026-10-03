@@ -17,13 +17,13 @@ export default async function NewPackagePage({
           className="text-sm font-medium text-primary hover:underline"
           href="/admin/packages"
         >
-          ← Kelola package
+          ← Kelola paket
         </Link>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
           Katalog studio
         </p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-          Tambah package
+          Tambah paket
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Isi informasi yang akan dilihat customer.

@@ -26,7 +26,7 @@ const errorMessages: Record<string, string> = {
     "Slot ini baru saja dipesan atau tidak lagi tersedia. Pilih slot lain.",
   hold_limit:
     "Anda sudah memiliki jumlah booking menunggu pembayaran maksimum.",
-  not_found: "Package tidak lagi tersedia.",
+  not_found: "Paket tidak lagi tersedia.",
   invalid: "Data booking tidak valid. Silakan pilih slot kembali.",
   rate_limited: "Terlalu banyak percobaan booking. Tunggu sebentar lalu coba lagi.",
 };

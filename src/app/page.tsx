@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Fotiu Studio | Sesi Foto Personal",
   description:
-    "Jelajahi package foto, pilih jadwal, dan booking sesi di Fotiu Studio.",
+    "Jelajahi paket foto, pilih jadwal, dan booking sesi di Fotiu Studio.",
 };
 
 const rupiah = (amount: number) =>
@@ -73,7 +73,7 @@ export default async function Home() {
               personal.
             </h1>
             <p className="mt-5 max-w-xl text-lg leading-8 text-muted-foreground">
-              Pilih package yang cocok, cek jadwal real-time, dan booking sesi
+              Pilih paket yang cocok, cek jadwal real-time, dan booking sesi
               foto dengan proses yang cepat, jelas, dan santai.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -81,7 +81,7 @@ export default async function Home() {
                 className="inline-flex h-12 items-center rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground shadow-[0_18px_30px_rgba(37,99,180,0.2)] transition-transform hover:-translate-y-0.5 hover:opacity-95"
                 href="/packages"
               >
-                Lihat package
+                Lihat paket
               </Link>
               <Link
                 className="inline-flex h-12 items-center rounded-full border border-border bg-white/80 px-6 text-sm font-medium text-foreground hover:bg-secondary"
@@ -157,7 +157,7 @@ export default async function Home() {
             className="text-sm font-medium text-foreground underline-offset-4 hover:underline"
             href="/packages"
           >
-            Semua package
+            Semua paket
           </Link>
         </div>
 
@@ -192,7 +192,7 @@ export default async function Home() {
                     </div>
                   ) : (
                     <div className="flex h-52 items-center justify-center bg-gradient-to-br from-[#edf5ff] to-[#e4efff] text-sm text-muted-foreground">
-                      Foto package
+                      Foto paket
                     </div>
                   )}
                   <div className="p-5">
@@ -287,7 +287,7 @@ export default async function Home() {
               </div>
               <h3 className="font-semibold">Cepat</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Pilih package, pilih jadwal, dan bayar dengan alur yang ringkas.
+                Pilih paket, pilih jadwal, dan bayar dengan alur yang ringkas.
               </p>
             </div>
             <div className="soft-card p-5">

@@ -61,7 +61,7 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
         href="/packages"
       >
         <span aria-hidden="true">←</span>
-        Semua package
+        Semua paket
       </Link>
 
       <article className="mt-6 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-white via-[#f7faff] to-[#eaf3ff] shadow-[0_26px_70px_rgba(40,80,150,0.08)] md:grid md:grid-cols-2">
@@ -79,7 +79,7 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
           </div>
         ) : (
           <div className="flex min-h-64 items-center justify-center bg-gradient-to-br from-[#edf5ff] to-[#dfecff] text-sm text-muted-foreground md:h-[500px]">
-            Foto package
+            Foto paket
           </div>
         )}
         <div className="flex flex-col justify-center p-6 sm:p-9">

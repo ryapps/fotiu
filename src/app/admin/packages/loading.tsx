@@ -7,7 +7,7 @@ export default function AdminPackagesLoading() {
     >
       <div className="h-9 w-56 animate-pulse rounded bg-secondary" />
       <p className="mt-4 text-sm text-muted-foreground">
-        Memuat pengelolaan package...
+        Memuat pengelolaan paket...
       </p>
       <div className="mt-8 h-64 animate-pulse rounded-xl bg-secondary" />
     </main>

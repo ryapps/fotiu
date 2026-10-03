@@ -1,19 +1,19 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
-import {
-  PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
-} from "@/modules/scheduling/session-duration";
 import {
   packageActiveActionSchema,
   packageIdSchema,
   parsePackageFormData,
 } from "@/modules/packages/schema";
+import {
+  PHOTO_SESSION_BUFFER_MINUTES,
+  PHOTO_SESSION_DURATION_MINUTES,
+} from "@/modules/scheduling/session-duration";
+import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 function packageFormPath(id?: string) {
   return id
@@ -30,7 +30,8 @@ export async function savePackage(formData: FormData) {
 
   const rawId = formData.get("id");
   const parsedId = rawId === null ? null : packageIdSchema.safeParse(rawId);
-  if (parsedId && !parsedId.success) formError("/admin/packages/new", "invalid");
+  if (parsedId && !parsedId.success)
+    formError("/admin/packages/new", "invalid");
   const id = parsedId?.data ?? null;
   const formPath = packageFormPath(id ?? undefined);
   const parsed = parsePackageFormData(formData);
@@ -96,7 +97,7 @@ export async function setPackageActive(formData: FormData) {
     where: { id },
     data: { isActive },
   });
-  revalidatePath("/packages");
+  revalidatePath("/s");
   revalidatePath("/");
   revalidatePath(`/packages/${existing.slug}`);
   revalidatePath("/admin/packages");

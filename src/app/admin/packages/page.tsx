@@ -33,9 +33,9 @@ export default async function AdminPackagesPage({
 
   const errorMessages: Record<string, string> = {
     invalid: "Permintaan tidak valid.",
-    not_found: "Package tidak ditemukan atau sudah dihapus.",
+    not_found: "Paket tidak ditemukan atau sudah dihapus.",
     has_bookings:
-      "Package memiliki riwayat booking dan tidak dapat dihapus. Nonaktifkan package untuk menyembunyikannya.",
+      "Paket memiliki riwayat booking dan tidak dapat dihapus. Nonaktifkan paket untuk menyembunyikannya.",
   };
 
   return (
@@ -46,17 +46,17 @@ export default async function AdminPackagesPage({
             Katalog studio
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            Kelola package
+            Kelola paket
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Atur katalog package yang ditampilkan customer.
+            Atur katalog paket yang ditampilkan customer.
           </p>
         </div>
         <Link
           className="inline-flex h-10 items-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-transform hover:-translate-y-0.5 hover:opacity-90"
           href="/admin/packages/new"
         >
-          Tambah package
+          Tambah paket
         </Link>
       </header>
 
@@ -73,15 +73,15 @@ export default async function AdminPackagesPage({
           role="status"
           className="mt-6 rounded-md border border-primary/30 p-3 text-sm"
         >
-          Perubahan package berhasil disimpan.
+          Perubahan paket berhasil disimpan.
         </p>
       )}
 
       {packages.length === 0 ? (
         <section className="mt-8 rounded-2xl border border-dashed border-primary/20 bg-white/60 p-8 text-center">
-          <h2 className="font-semibold">Belum ada package</h2>
+          <h2 className="font-semibold">Belum ada paket</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Buat package pertama untuk mulai mengisi katalog.
+            Buat paket pertama untuk mulai mengisi katalog.
           </p>
         </section>
       ) : (
@@ -89,7 +89,7 @@ export default async function AdminPackagesPage({
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-secondary/60 text-muted-foreground">
               <tr>
-                <th className="px-4 py-3 font-medium">Package</th>
+                <th className="px-4 py-3 font-medium">Paket</th>
                 <th className="px-4 py-3 font-medium">Harga / durasi</th>
                 <th className="px-4 py-3 font-medium">Booking</th>
                 <th className="px-4 py-3 font-medium">Status</th>

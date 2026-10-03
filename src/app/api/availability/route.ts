@@ -30,7 +30,7 @@ export async function GET(request: Request) {
       {
         ok: false,
         code: "VALIDATION",
-        message: "Pilih package dan tanggal yang valid.",
+        message: "Pilih paket dan tanggal yang valid.",
       },
       { status: 400 },
     );
