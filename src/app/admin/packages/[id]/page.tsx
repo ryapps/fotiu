@@ -23,7 +23,7 @@ export default async function EditPackagePage({
   if (!packageRecord) notFound();
 
   return (
-    <main className="mx-auto w-full max-w-3xl flex-1 px-5 py-12 sm:px-8">
+    <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
       <header className="rounded-[1.75rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_20px_54px_rgba(40,80,150,0.07)] sm:p-8">
         <Link
           className="text-sm font-medium text-primary hover:underline"

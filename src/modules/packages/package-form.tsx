@@ -20,7 +20,7 @@ export function PackageForm({ packageRecord, error }: PackageFormProps) {
   };
 
   return (
-    <form action={savePackage} className="space-y-5">
+    <form action={savePackage} className="mt-8 space-y-6">
       {packageRecord && (
         <input type="hidden" name="id" value={packageRecord.id} />
       )}
