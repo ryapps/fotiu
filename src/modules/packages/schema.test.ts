@@ -10,6 +10,7 @@ const validPackage = {
   name: "Portrait Basic",
   description: "Sesi portrait untuk satu orang.",
   price: 30_000,
+  durationMinutes: 10,
   coverImageUrl: "",
   sortOrder: 1,
 };
@@ -23,6 +24,8 @@ describe("packageInputSchema", () => {
     { price: 19_999 },
     { price: 40_001 },
     { price: 20_000.5 },
+    { durationMinutes: 4 },
+    { durationMinutes: 61 },
     { sortOrder: -1 },
     { slug: "Portrait Basic" },
     { coverImageUrl: "javascript:alert(1)" },

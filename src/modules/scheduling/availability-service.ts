@@ -4,11 +4,6 @@ import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { calculateAvailability } from "@/modules/scheduling/availability";
 import {
-  PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
-  PHOTO_SESSION_SLOT_INTERVAL_MINUTES,
-} from "@/modules/scheduling/session-duration";
-import {
   localDayBoundsUtc,
   weekdayForLocalDate,
 } from "@/modules/scheduling/time";
@@ -29,7 +24,7 @@ export async function getPackageAvailabilityWithClient(
 ) {
   const photoPackage = await client.package.findFirst({
     where: { id: packageId, isActive: true },
-    select: { id: true },
+    select: { id: true, durationMinutes: true, bufferMinutes: true },
   });
   if (!photoPackage) return null;
 
@@ -71,9 +66,10 @@ export async function getPackageAvailabilityWithClient(
     isOpen: operatingHour.isOpen,
     openTime: operatingHour.openTime,
     closeTime: operatingHour.closeTime,
-    durationMinutes: PHOTO_SESSION_DURATION_MINUTES,
-    bufferMinutes: PHOTO_SESSION_BUFFER_MINUTES,
-    slotIntervalMinutes: PHOTO_SESSION_SLOT_INTERVAL_MINUTES,
+    durationMinutes: photoPackage.durationMinutes,
+    bufferMinutes: photoPackage.bufferMinutes,
+    slotIntervalMinutes:
+      photoPackage.durationMinutes + photoPackage.bufferMinutes,
     minLeadHours: env.MIN_LEAD_HOURS,
     maxAdvanceDays: env.MAX_ADVANCE_DAYS,
     bookings,

@@ -1,10 +1,6 @@
 import { env } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { AvailabilityPicker } from "@/modules/scheduling/availability-picker";
-import {
-  PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
-} from "@/modules/scheduling/session-duration";
 import { addCalendarDays, getLocalDate } from "@/modules/scheduling/time";
 import type { Metadata } from "next";
 import Image from "next/image";
@@ -48,6 +44,8 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
       name: true,
       description: true,
       price: true,
+      durationMinutes: true,
+      bufferMinutes: true,
       coverImageUrl: true,
     },
   });
@@ -107,16 +105,16 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
                 Durasi
               </dt>
               <dd className="mt-2 text-lg font-semibold text-foreground">
-                {PHOTO_SESSION_DURATION_MINUTES} menit
+                {photoPackage.durationMinutes} menit
               </dd>
             </div>
-            {PHOTO_SESSION_BUFFER_MINUTES > 0 && (
+            {photoPackage.bufferMinutes > 0 && (
               <div className="col-span-2">
                 <dt className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
                   Waktu persiapan
                 </dt>
                 <dd className="mt-2 text-lg font-semibold text-foreground">
-                  {PHOTO_SESSION_BUFFER_MINUTES} menit
+                  {photoPackage.bufferMinutes} menit
                 </dd>
               </div>
             )}

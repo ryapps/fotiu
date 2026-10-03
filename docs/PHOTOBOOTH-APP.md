@@ -5,9 +5,10 @@ memanggil endpoint action lokal `GET /api/actions/{action_type}/{index}`. Plugin
 Commander mengirim lifecycle event kembali ke agent. API booth dan callback hanya
 untuk jaringan komputer studio; jangan meneruskannya ke internet.
 
-Setiap booking menyediakan sesi 10 menit dan jeda 2 menit sebelum slot berikutnya.
-Commander/action Photobooth-App perlu dikonfigurasi agar job capture selesai
-dalam 10 menit. Fotiu tidak menghentikan job dengan timer; sesi hanya dinyatakan
+Setiap booking menyediakan durasi sesi sesuai package saat dibooking (5–60 menit)
+dan jeda 2 menit sebelum slot berikutnya. Commander/action Photobooth-App perlu
+dikonfigurasi agar job capture selesai dalam durasi package tersebut. Fotiu
+tidak menghentikan job dengan timer; sesi hanya dinyatakan
 selesai setelah callback `finished` tervalidasi diterima.
 
 ## Prasyarat

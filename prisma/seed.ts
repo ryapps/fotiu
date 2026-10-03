@@ -80,7 +80,7 @@ async function main() {
     const saved = await prisma.package.upsert({
       where: { slug },
       create: { slug, ...data },
-      update: data,
+      update: {},
     });
     seededPackages.set(slug, saved.id);
   }

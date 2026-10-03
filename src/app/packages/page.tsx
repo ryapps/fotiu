@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { PHOTO_SESSION_DURATION_MINUTES } from "@/modules/scheduling/session-duration";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -28,6 +27,7 @@ async function ActivePackageGrid() {
       name: true,
       description: true,
       price: true,
+      durationMinutes: true,
       coverImageUrl: true,
     },
   });
@@ -83,7 +83,7 @@ async function ActivePackageGrid() {
                   {formatRupiah(photoPackage.price)}
                 </span>
                 <span className="text-muted-foreground">
-                  {PHOTO_SESSION_DURATION_MINUTES} menit
+                  {photoPackage.durationMinutes} menit
                 </span>
               </div>
               <Link
@@ -139,9 +139,7 @@ export default function PackagesPage() {
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
                 Durasi
               </p>
-              <p className="mt-2 text-lg font-semibold">
-                {PHOTO_SESSION_DURATION_MINUTES}m
-              </p>
+              <p className="mt-2 text-lg font-semibold">Variatif</p>
             </div>
             <div className="soft-card p-3 text-center">
               <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">

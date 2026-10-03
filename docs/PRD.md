@@ -138,7 +138,7 @@ Untuk P0 mock, cloud menyimpan command `START_SESSION`; Local Booth Agent mengam
 | ID     | Requirement                                                                       |
 | ------ | --------------------------------------------------------------------------------- |
 | FR-001 | Guest dapat melihat daftar package aktif tanpa login.                             |
-| FR-002 | Guest dapat melihat detail package (deskripsi, harga, durasi sesi 10 menit, jeda 2 menit, foto). |
+| FR-002 | Guest dapat melihat detail package (deskripsi, harga, durasi sesi per package 5–60 menit, jeda 2 menit, foto). |
 | FR-003 | Guest dapat melihat gallery.                                                      |
 | FR-004 | Guest dapat melihat informasi studio (alamat, jam operasional, kontak).           |
 | FR-005 | Guest yang membuka halaman customer/admin diarahkan ke halaman login yang sesuai. |
@@ -210,7 +210,7 @@ Untuk P0 mock, cloud menyimpan command `START_SESSION`; Local Booth Agent mengam
 | ------ | -------------------------------------------------------------------------------------- |
 | FR-060 | Admin dapat mengatur jam operasional per hari dalam seminggu.                          |
 | FR-061 | Admin dapat memblokir rentang waktu tertentu (libur, maintenance).                     |
-| FR-062 | Availability menyediakan sesi 10 menit dengan jeda 2 menit; slot dimulai setiap 12 menit selama jam operasional, kecuali terhalang booking atau schedule block. |
+| FR-062 | Availability memakai durasi sesi package 5–60 menit dengan jeda 2 menit; slot dimulai setiap durasi + jeda dari jam buka, kecuali terhalang booking atau schedule block. |
 | FR-063 | Ada batas minimum lead time dan maksimum hari ke depan untuk booking.                  |
 
 ### Photobooth Operations
@@ -220,7 +220,7 @@ Untuk P0 mock, cloud menyimpan command `START_SESSION`; Local Booth Agent mengam
 | FR-070 | Admin dapat melihat booth dan status ONLINE, OFFLINE, BUSY, atau MAINTENANCE.                                                                                                              |
 | FR-071 | Local Booth Agent mengautentikasi sebagai device tersendiri dan mengirim heartbeat berkala.                                                                                                |
 | FR-072 | Sistem menentukan status ONLINE/OFFLINE dari waktu heartbeat dan timeout yang dapat dikonfigurasi.                                                                                         |
-| FR-073 | Admin hanya dapat check-in dan memulai sesi booking CONFIRMED + PAID selama 10 menit sejak `startAt`; booking menahan slot 12 menit termasuk jeda.                                        |
+| FR-073 | Admin hanya dapat check-in dan memulai sesi booking CONFIRMED + PAID selama maksimal 10 menit sejak `startAt`, dibatasi durasi sesi booking; booking menahan slot selama durasi sesi + jeda 2 menit. |
 | FR-074 | Setelah check-in, admin dapat assign booth ONLINE yang tidak BUSY atau MAINTENANCE dan tidak memiliki active photo session.                                                                |
 | FR-075 | Assignment membuat photo session READY yang terpisah dari status booking. Satu booking boleh memiliki beberapa photo session sepanjang hanya satu yang aktif.                              |
 | FR-076 | Admin dapat meminta `START_SESSION`; sistem membuat command idempotent dan agent meneruskannya melalui provider adapter.                                                                   |
@@ -247,13 +247,13 @@ Untuk P0 mock, cloud menyimpan command `START_SESSION`; Local Booth Agent mengam
 | BR-009    | Booking WAITING_PAYMENT yang lewat `holdExpiresAt` menjadi EXPIRED dan slot kembali tersedia.                                                                                                                          |
 | BR-010    | Customer dapat membatalkan WAITING_PAYMENT kapan saja. Untuk CONFIRMED, pembatalan boleh sampai `CUSTOMER_CANCEL_DEADLINE_HOURS` (default 24 jam) sebelum sesi. Setelah itu hanya admin yang dapat membatalkan.        |
 | BR-011    | Tidak ada automatic refund. Booking CONFIRMED yang dibatalkan dengan payment PAID ditandai perlu refund manual.                                                                                                        |
-| BR-012    | Reschedule hanya oleh admin, hanya untuk CONFIRMED; slot baru memakai sesi 10 menit + jeda 2 menit dan harus valid menurut BR-003.                                                                                      |
+| BR-012    | Reschedule hanya oleh admin, hanya untuk CONFIRMED; slot baru mempertahankan durasi sesi booking dan jeda 2 menit, serta harus valid menurut BR-003. |
 | BR-013    | COMPLETED hanya dari CONFIRMED, setelah photo session COMPLETED dan waktu sesi memenuhi aturan operasional. Manual completion hanya untuk recovery dengan alasan, aktor, dan waktu tercatat. COMPLETED bersifat final. |
 | BR-014    | Package yang sudah punya booking tidak boleh dihapus, hanya dinonaktifkan. Package nonaktif tidak tampil dan tidak bisa dibooking. Booking lama tetap valid.                                                           |
 | BR-015    | Akun admin dibuat lewat seed/script, bukan registrasi publik.                                                                                                                                                          |
 | BR-016    | Waktu disimpan dalam UTC dan ditampilkan dalam Asia/Jakarta.                                                                                                                                                           |
 | BR-017    | Booking CANCELLED dan EXPIRED tidak memblokir slot. WAITING_PAYMENT (belum expired) dan CONFIRMED memblokir slot.                                                                                                      |
-| BR-018    | Perubahan harga package tidak memengaruhi booking yang sudah ada.                                                                                                                                                      |
+| BR-018    | Perubahan harga atau durasi package tidak memengaruhi harga dan rentang jadwal booking yang sudah ada. |
 | BR-019    | Harga setiap package berada pada rentang Rp20.000–Rp40.000. Booking dan payment menyimpan snapshot harga saat booking dibuat.                                                                                         |
 | BR-PB-001 | Hanya booking CONFIRMED dengan payment PAID yang dapat check-in.                                                                                                                                                       |
 | BR-PB-002 | Booking harus check-in sebelum booth assignment dan photo session dibuat/dimulai.                                                                                                                                      |
@@ -392,7 +392,7 @@ Priority: **P0** = core MVP, **P1** = penting, **P2** = nice-to-have.
 
 - [ ] Slot yang sudah dibooking atau ditahan tidak tampil sebagai tersedia.
 - [ ] Slot di luar jam operasional atau yang diblokir tidak tampil.
-- [ ] Slot menyediakan 10 menit sesi dan jeda 2 menit, berulang setiap 12 menit.
+- [ ] Slot memakai durasi sesi package dan jeda 2 menit, berulang setiap durasi + jeda.
 
 **US-004** Sebagai customer, saya ingin membuat booking untuk slot terpilih, agar slot tersebut diamankan untuk saya.
 

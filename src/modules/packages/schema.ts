@@ -26,6 +26,7 @@ export const packageInputSchema = z.object({
     .min(20_000, "Harga minimum package Rp20.000.")
     .max(40_000, "Harga maksimum package Rp40.000.")
     .safe(),
+  durationMinutes: z.number().int().min(5).max(60).safe(),
   coverImageUrl: z.union([z.url(), z.literal("")]).refine((value) => {
     if (value === "") return true;
     const protocol = new URL(value).protocol;
@@ -49,6 +50,7 @@ export function parsePackageFormData(formData: FormData) {
     name: formData.get("name"),
     description: formData.get("description"),
     price: numberField("price"),
+    durationMinutes: numberField("durationMinutes"),
     coverImageUrl: formData.get("coverImageUrl") ?? "",
     sortOrder: numberField("sortOrder"),
   });

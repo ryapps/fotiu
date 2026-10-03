@@ -2,16 +2,20 @@
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
+import { galleryUploadRequestSchema } from "@/modules/gallery/image-validation";
+import {
+  createPackageCoverUpload,
+  packageCoverPublicUrl,
+  verifyPackageCoverObject,
+} from "@/modules/gallery/storage";
 import {
   packageActiveActionSchema,
   packageIdSchema,
   parsePackageFormData,
 } from "@/modules/packages/schema";
-import {
-  PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
-} from "@/modules/scheduling/session-duration";
+import { PHOTO_SESSION_BUFFER_MINUTES } from "@/modules/scheduling/session-duration";
 import { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -23,6 +27,27 @@ function packageFormPath(id?: string) {
 
 function formError(path: string, code: string): never {
   redirect(`${path}?error=${code}`);
+}
+
+const packageCoverKeySchema = z
+  .string()
+  .regex(
+    /^packages\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/,
+  );
+
+export async function requestPackageCoverUpload(input: unknown) {
+  await requireAdmin();
+  const parsed = galleryUploadRequestSchema.safeParse(input);
+  if (!parsed.success)
+    return { ok: false as const, code: "INVALID_FILE" as const };
+  try {
+    return {
+      ok: true as const,
+      ...(await createPackageCoverUpload(parsed.data.contentType)),
+    };
+  } catch {
+    return { ok: false as const, code: "STORAGE_UNAVAILABLE" as const };
+  }
 }
 
 export async function savePackage(formData: FormData) {
@@ -39,11 +64,29 @@ export async function savePackage(formData: FormData) {
   if (!parsed.success) formError(formPath, "invalid");
 
   const { coverImageUrl, ...fields } = parsed.data;
+  const rawCoverKey = formData.get("coverImageKey");
+  let savedCoverUrl = coverImageUrl || null;
+  if (rawCoverKey) {
+    const key = packageCoverKeySchema.safeParse(rawCoverKey);
+    if (!key.success) formError(formPath, "invalid_image");
+    const contentType = key.data.endsWith(".jpg")
+      ? ("image/jpeg" as const)
+      : key.data.endsWith(".png")
+        ? ("image/png" as const)
+        : ("image/webp" as const);
+    let verified: boolean;
+    try {
+      verified = await verifyPackageCoverObject(key.data, contentType);
+    } catch {
+      formError(formPath, "storage_unavailable");
+    }
+    if (!verified) formError(formPath, "invalid_image");
+    savedCoverUrl = packageCoverPublicUrl(key.data);
+  }
   const data = {
     ...fields,
-    durationMinutes: PHOTO_SESSION_DURATION_MINUTES,
     bufferMinutes: PHOTO_SESSION_BUFFER_MINUTES,
-    coverImageUrl: coverImageUrl || null,
+    coverImageUrl: savedCoverUrl,
   };
 
   try {

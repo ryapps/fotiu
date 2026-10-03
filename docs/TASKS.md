@@ -220,7 +220,8 @@ memerlukannya saat fitur masing-masing diimplementasikan.
 - [x] Admin: daftar package, create, update (FR-050)
 - [x] Admin: aktif/nonaktif (FR-051)
 - [x] Admin: hapus hanya jika tidak punya booking (FR-052)
-- [x] Skema validasi Zod untuk package (harga Rp20.000–Rp40.000, durasi sesi/jeda tetap 10/2 menit, slug unik)
+- [x] Skema validasi Zod untuk package (harga Rp20.000–Rp40.000, durasi sesi 5–60 menit, jeda tetap 2 menit, slug unik)
+- [x] Upload sampul package langsung ke object storage; URL lama tetap didukung
 - [x] State loading, empty, dan error
 
 ### TASK-3.1 — Package Deactivation dan Deletion Rule
@@ -266,10 +267,10 @@ Soft delete vs hard delete, snapshot data historis, foreign key `RESTRICT`.
 
 - [x] Admin: atur jam operasional per hari (FR-060)
 - [x] Admin: schedule block, create dan delete (FR-061)
-- [x] Konfigurasi booking (lead time dan max advance; slot tetap 12 menit)
+- [x] Konfigurasi booking (lead time dan max advance; slot per durasi package + jeda)
 - [x] Util waktu (konversi UTC dan Asia/Jakarta)
 - [x] `getAvailability` (FR-021, FR-062, FR-063)
-- [x] Sesi tetap 10 menit dengan jeda 2 menit; slot berulang tiap 12 menit sampai jam tutup.
+- [x] Sesi mengikuti durasi package 5–60 menit dengan jeda 2 menit; slot berulang tiap durasi + jeda sampai jam tutup.
 - [x] UI pemilih tanggal dan slot (sementara tanpa membuat booking)
 
 ### TASK-4.1 — Availability Calculation
@@ -293,7 +294,7 @@ TASK-3.1, operating hours, schedule block.
 
 - Hari tutup atau tanggal masa lalu.
 - Slot yang melewati jam tutup.
-- Slot sesi tetap 10 menit + jeda 2 menit, berulang setiap 12 menit.
+- Slot sesi mengikuti durasi package + jeda 2 menit, berulang setiap durasi + jeda.
 - Hold yang sudah expired namun belum di-sweep.
 - Pergantian hari dan perbedaan UTC vs Asia/Jakarta.
 - Blokir yang sebagian menimpa jam operasional.
@@ -793,7 +794,7 @@ TASK-1.1, TASK-4.1, TASK-2.3.
 
 **Requirements**
 
-- Hanya CONFIRMED. Durasi dan buffer tetap 10/2 menit.
+- Hanya CONFIRMED. Durasi booking lama dipertahankan, buffer tetap 2 menit.
 - Validasi slot baru (jam operasional, blokir).
 - `UPDATE ... WHERE id AND status='CONFIRMED'`, konflik ditangkap dari constraint.
 - Booking tetap di slot lama jika gagal.
@@ -828,8 +829,8 @@ TASK-6.2, PB-5. Complete/cancel action tetap bagian booking state machine; booki
 
 Catatan progres Phase 8: halaman booking, detail, kalender, daftar customer,
 indikator payment, pembatalan admin, dan reschedule tersedia. Reschedule
-memakai durasi tetap 10 menit + jeda 2 menit, memvalidasi jam operasional,
-interval 12 menit, blokir, dan
+mempertahankan durasi sesi booking + jeda 2 menit, memvalidasi jam operasional,
+interval durasi + jeda, blokir, dan
 booking lain; constraint integration test mencakup konflik/self-overlap. Complete
 normal hanya menerima session COMPLETED; manual recovery memerlukan alasan dan
 menyimpan admin/waktu/source. Pembatalan PAID menampilkan kebutuhan refund; READY

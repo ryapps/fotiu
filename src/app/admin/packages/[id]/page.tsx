@@ -17,7 +17,19 @@ export default async function EditPackagePage({
   const { id } = await params;
   const [{ error }, packageRecord] = await Promise.all([
     searchParams,
-    prisma.package.findUnique({ where: { id } }),
+    prisma.package.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        price: true,
+        durationMinutes: true,
+        sortOrder: true,
+        coverImageUrl: true,
+      },
+    }),
   ]);
 
   if (!packageRecord) notFound();
@@ -38,8 +50,8 @@ export default async function EditPackagePage({
           Edit paket
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Perubahan harga hanya berlaku untuk booking baru; snapshot booking
-          lama tetap tersimpan.
+          Perubahan harga dan durasi berlaku untuk booking baru. Harga dan
+          jadwal booking lama tetap tersimpan.
         </p>
       </header>
       <PackageForm packageRecord={packageRecord} error={error} />

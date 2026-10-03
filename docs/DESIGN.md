@@ -129,8 +129,8 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 ### `packages`
 
 - **Purpose:** katalog paket foto.
-- **Fields:** `id`, `slug` (unique), `name`, `description`, `price` (int), `durationMinutes` (fixed 10), `bufferMinutes` (fixed 2), `coverImageUrl`, `isActive`, `sortOrder`, `createdAt`, `updatedAt`.
-- **Constraints:** database menolak `price < 0` dan durasi tidak positif. Mutation admin menerapkan harga Rp20.000–Rp40.000 serta durasi/jeda tetap 10/2 menit.
+- **Fields:** `id`, `slug` (unique), `name`, `description`, `price` (int), `durationMinutes` (admin 5–60; default seed 10), `bufferMinutes` (fixed 2), `coverImageUrl`, `isActive`, `sortOrder`, `createdAt`, `updatedAt`.
+- **Constraints:** database menolak `price < 0` dan durasi tidak positif. Mutation admin menerapkan harga Rp20.000–Rp40.000, durasi 5–60 menit, dan jeda tetap 2 menit.
 - **Index:** `slug` (unique), `(isActive, sortOrder)`.
 
 ### `bookings`
@@ -338,13 +338,13 @@ erDiagram
 
 ## 9. Booking Design
 
-**Aturan slot tetap:** sesi 10 menit, jeda 2 menit, dan awal slot berjarak 12 menit dari jam buka. Konfigurasi lain: `BOOKING_HOLD_MINUTES=15`, `MIN_LEAD_HOURS=2`, `MAX_ADVANCE_DAYS=60`, `CUSTOMER_CANCEL_DEADLINE_HOURS=24`, `MAX_ACTIVE_HOLDS_PER_USER=2`, `STUDIO_TIMEZONE=Asia/Jakarta`.
+**Aturan slot per package:** sesi 5–60 menit sesuai `durationMinutes`, jeda tetap 2 menit, dan awal slot berjarak durasi + jeda dari jam buka. Konfigurasi lain: `BOOKING_HOLD_MINUTES=15`, `MIN_LEAD_HOURS=2`, `MAX_ADVANCE_DAYS=60`, `CUSTOMER_CANCEL_DEADLINE_HOURS=24`, `MAX_ACTIVE_HOLDS_PER_USER=2`, `STUDIO_TIMEZONE=Asia/Jakarta`.
 
 **Kalkulasi availability** (`availability` module), untuk `packageId` dan `date`:
 
 1. Ambil jam operasional untuk hari tersebut (timezone studio). Jika tutup, hasilnya kosong.
-2. Buat kandidat `startAt` setiap 12 menit dari jam buka.
-3. Untuk tiap kandidat: `endAt = startAt + 10 menit sesi + 2 menit jeda`. Kandidat valid jika `endAt <= jam tutup`.
+2. Buat kandidat `startAt` setiap `durationMinutes + bufferMinutes` dari jam buka.
+3. Untuk tiap kandidat: `endAt = startAt + durationMinutes + bufferMinutes`. Kandidat valid jika `endAt <= jam tutup`.
 4. Buang kandidat yang lebih awal dari `now + MIN_LEAD_HOURS` atau lebih jauh dari `MAX_ADVANCE_DAYS`.
 5. Buang kandidat yang overlap dengan `schedule_blocks`.
 6. Buang kandidat yang overlap dengan booking aktif: `CONFIRMED`, atau `WAITING_PAYMENT` dengan `holdExpiresAt > now`.
@@ -550,7 +550,7 @@ Konvensi: **Server Action (SA)** untuk mutasi dari UI, **Server Component query 
 | `assignBooth`                                 | SA                  | Admin | `bookingId`, `boothId`                         | Photo session READY                                         | booking checked-in; booth ONLINE; no active session; DB constraint                                        | NotFound, Conflict, InvalidState      |
 | `startPhotoSession`                           | SA                  | Admin | `photoSessionId`                               | Command PENDING + session STARTING                          | session READY; booking CONFIRMED + PAID; booth ONLINE; no active command                                  | NotFound, Conflict, InvalidState      |
 | `completeBookingManually`                     | SA                  | Admin | `bookingId`, `reason`                          | Booking COMPLETED                                           | only recovery; record actor/reason; verify session has actually ended and record manual completion source | InvalidState, RuleViolation           |
-| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga ≥ 0, durasi/jeda ditetapkan sistem, slug unik)                                                 | Validation, Conflict (slug)           |
+| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga Rp20.000–Rp40.000, durasi 5–60 menit, jeda 2 menit, slug unik)                                  | Validation, Conflict (slug)           |
 | `togglePackageActive`                         | SA                  | Admin | `packageId`, `isActive`                        | Package                                                     | -                                                                                                         | NotFound                              |
 | `deletePackage`                               | SA                  | Admin | `packageId`                                    | OK                                                          | tidak punya booking                                                                                       | RuleViolation                         |
 | `upsertOperatingHours`                        | SA                  | Admin | 7 hari (`isOpen`, `openTime`, `closeTime`)     | OK                                                          | open < close, format HH:mm                                                                                | Validation                            |
@@ -631,14 +631,14 @@ Check-in, assignment, start session, dan recovery berada pada booking detail adm
 ## 17. Main Screen Requirements
 
 - **Landing Page:** hero dengan CTA, ringkasan package unggulan, cuplikan gallery, info studio (alamat, jam buka, kontak), CTA booking.
-- **Package Detail:** nama, harga, sesi 10 menit, jeda 2 menit, deskripsi, foto, CTA "Pilih Jadwal".
+- **Package Detail:** nama, harga, durasi sesi package, jeda 2 menit, deskripsi, foto, CTA "Pilih Jadwal".
 - **Booking Page:** pilih tanggal, daftar slot (ditandai tersedia atau tidak), ringkasan package dan harga, catatan opsional, tombol konfirmasi. State: loading slot, kosong ("tidak ada slot"), error konflik.
 - **Payment (di Booking Detail):** QR, nominal, countdown hold, status (menunggu, sukses, gagal, kedaluwarsa), tombol "buat ulang QRIS" jika gagal dibuat, tombol batalkan.
 - **Customer Dashboard:** upcoming booking terdekat dengan status, tombol booking baru, link ke history.
 - **Admin Dashboard:** kartu ringkasan (booking per status, sesi hari ini dan mendatang, pendapatan sederhana), daftar sesi terdekat.
 - **Booking Management:** tabel dengan filter status, tanggal, pencarian, badge status booking dan payment, indikator "perlu review" dan "perlu refund".
 - **Photobooth:** status booth berasal dari maintenance flag, heartbeat, dan sesi aktif. Booking detail menampilkan check-in, assignment, command/session state, normalized event timeline ringkas, serta tindakan recovery admin.
-- Check-in, assignment, dan start hanya tersedia pada rentang sesi `[startAt, startAt + 10 menit)`. Booking menahan slot penuh `[startAt, endAt)` selama 12 menit agar jeda 2 menit terlindungi. Waktu dibandingkan sebagai UTC.
+- Check-in, assignment, dan start hanya tersedia pada rentang `[startAt, startAt + min(10 menit, durasi sesi booking))`. Booking menahan slot penuh `[startAt, endAt)` selama durasi sesi + jeda 2 menit. Waktu dibandingkan sebagai UTC.
 - P0 provisioning membatasi satu booth mock untuk satu studio. Batas ini membuat aturan satu active session studio terpenuhi; dukungan multi-booth ditunda ke P2.
 - **Calendar:** tampilan minggu atau bulan berisi booking (warna per status), klik membuka detail booking. Tampilan sederhana tanpa drag-and-drop.
 
@@ -680,7 +680,7 @@ flowchart LR
     CR[Cron - Vercel Cron / pg_cron] --> V
 ```
 
-Object storage memakai API S3-compatible dari endpoint yang dikonfigurasi; adapter AWS SDK v3 membuat presigned PUT 60 detik. Bucket harus mengizinkan PUT dari origin `APP_URL` dengan header `Content-Type` dan menyediakan public read pada `STORAGE_PUBLIC_URL`. File hanya JPEG/PNG/WebP dan maksimal 10 MiB. Object key UUID dibuat server; saat metadata akan disimpan, server memeriksa HEAD (ukuran dan MIME) serta magic bytes sebelum mencatat URL. Image baru menjadi draft dan harus dipublikasikan admin.
+Object storage memakai API S3-compatible dari endpoint yang dikonfigurasi; adapter AWS SDK v3 membuat presigned PUT 60 detik untuk galeri dan sampul package. Bucket harus mengizinkan PUT dari origin `APP_URL` dengan header `Content-Type` dan menyediakan public read pada `STORAGE_PUBLIC_URL`. File hanya JPEG/PNG/WebP dan maksimal 10 MiB. Object key UUID dibuat server; sebelum URL dicatat, server memeriksa HEAD (ukuran dan MIME) serta magic bytes. Image galeri baru menjadi draft dan harus dipublikasikan admin; sampul package langsung dipakai setelah package disimpan.
 
 Deployment Fotiu memakai Vercel Functions region `sin1` (Singapura), dekat database Supabase region `ap-southeast-2` (Jakarta). Runtime memakai Supavisor transaction pooler; Prisma migration dari komputer yang tidak memiliki IPv6 memakai session pooler. Data API Supabase tidak dipakai aplikasi dan role `anon`/`authenticated` tidak diberi DML pada tabel Fotiu.
 

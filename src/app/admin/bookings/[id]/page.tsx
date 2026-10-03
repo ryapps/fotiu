@@ -15,7 +15,8 @@ import {
 import { getBoothReadStatus } from "@/modules/photobooth/domain";
 import {
   PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
+  getBookedSessionDurationMinutes,
+  getCheckInWindowMinutes,
   isWithinPhotoSessionWindow,
 } from "@/modules/scheduling/session-duration";
 import { formatStudioDateTime } from "@/modules/scheduling/time";
@@ -122,7 +123,19 @@ export default async function AdminBookingDetailPage({
     `,
   ]);
   const now = new Date();
-  const checkInWindowOpen = isWithinPhotoSessionWindow(now, booking.startAt);
+  const bookedDurationMinutes = getBookedSessionDurationMinutes(
+    booking.startAt,
+    booking.endAt,
+  );
+  const checkInWindowMinutes = getCheckInWindowMinutes(
+    booking.startAt,
+    booking.endAt,
+  );
+  const checkInWindowOpen = isWithinPhotoSessionWindow(
+    now,
+    booking.startAt,
+    booking.endAt,
+  );
   const onlineBooths = booths.filter(
     (booth) =>
       getBoothReadStatus({
@@ -156,11 +169,9 @@ export default async function AdminBookingDetailPage({
     invalid_reschedule: "Input reschedule tidak valid.",
     checkin_invalid_state:
       "Hanya booking CONFIRMED dengan payment PAID yang dapat check-in.",
-    checkin_outside_schedule:
-      "Check-in hanya dapat dilakukan selama 10 menit sejak jadwal sesi dimulai.",
+    checkin_outside_schedule: `Check-in hanya dapat dilakukan selama ${checkInWindowMinutes} menit sejak jadwal sesi dimulai.`,
     checkin_already_checked_in: "Booking ini sudah check-in.",
-    assignment_invalid_state:
-      "Booking harus CONFIRMED, lunas, sudah check-in, dan sesi belum melewati 10 menit.",
+    assignment_invalid_state: `Booking harus CONFIRMED, lunas, sudah check-in, dan sesi belum melewati ${checkInWindowMinutes} menit.`,
     assignment_booth_unavailable: "Booth sedang offline atau maintenance.",
     assignment_session_active:
       "Booth atau booking masih memiliki photo session aktif.",
@@ -168,8 +179,7 @@ export default async function AdminBookingDetailPage({
       "Booth atau booking baru saja mendapat assignment lain. Muat ulang halaman.",
     assignment_not_found: "Booth atau booking tidak ditemukan.",
     assignment_invalid_input: "Data assignment tidak valid.",
-    start_invalid_state:
-      "Booking harus lunas, sudah check-in, dan sesi belum melewati 10 menit.",
+    start_invalid_state: `Booking harus lunas, sudah check-in, dan sesi belum melewati ${checkInWindowMinutes} menit.`,
     start_invalid_transition:
       "Photo session ini sudah dimulai atau berada pada status terminal.",
     start_booth_unavailable:
@@ -305,7 +315,7 @@ export default async function AdminBookingDetailPage({
             {formatStudioDateTime(booking.endAt, env.STUDIO_TIMEZONE)}
           </p>
           <p className="text-sm text-muted-foreground">
-            Sesi {PHOTO_SESSION_DURATION_MINUTES} menit + jeda{" "}
+            Sesi {bookedDurationMinutes} menit + jeda{" "}
             {PHOTO_SESSION_BUFFER_MINUTES} menit
           </p>
         </article>
@@ -404,10 +414,9 @@ export default async function AdminBookingDetailPage({
         <article className="rounded-2xl border border-primary/10 bg-white/80 p-5 shadow-[0_12px_28px_rgba(37,74,138,0.04)] sm:col-span-2">
           <h2 className="font-semibold">Check-in dan photo session</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Check-in dan mulai sesi tersedia selama{" "}
-            {PHOTO_SESSION_DURATION_MINUTES} menit sejak waktu mulai booking.
-            Slot berikutnya dimulai setelah jeda {PHOTO_SESSION_BUFFER_MINUTES}{" "}
-            menit.
+            Check-in dan mulai sesi tersedia selama {checkInWindowMinutes} menit
+            sejak waktu mulai booking. Slot berikutnya dimulai setelah jeda{" "}
+            {PHOTO_SESSION_BUFFER_MINUTES} menit.
             {formatStudioDateTime(booking.startAt, env.STUDIO_TIMEZONE)}–
             {formatStudioDateTime(booking.endAt, env.STUDIO_TIMEZONE)}.
           </p>
@@ -431,7 +440,7 @@ export default async function AdminBookingDetailPage({
               {booking.status === "CONFIRMED"
                 ? now < booking.startAt
                   ? `Check-in baru tersedia mulai ${formatStudioDateTime(booking.startAt, env.STUDIO_TIMEZONE)}.`
-                  : "Waktu check-in 10 menit untuk booking ini sudah lewat."
+                  : `Waktu check-in ${checkInWindowMinutes} menit untuk booking ini sudah lewat.`
                 : "Check-in tidak tersedia untuk status booking ini."}
             </p>
           )}
@@ -617,7 +626,7 @@ export default async function AdminBookingDetailPage({
           <article className="rounded-2xl border border-primary/10 bg-white/80 p-5 shadow-[0_12px_28px_rgba(37,74,138,0.04)] sm:col-span-2">
             <h2 className="font-semibold">Pindahkan jadwal</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sesi {PHOTO_SESSION_DURATION_MINUTES} menit + jeda{" "}
+              Sesi {bookedDurationMinutes} menit + jeda{" "}
               {PHOTO_SESSION_BUFFER_MINUTES} menit. Zona waktu:{" "}
               {env.STUDIO_TIMEZONE}.
             </p>

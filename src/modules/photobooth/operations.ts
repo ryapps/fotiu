@@ -54,7 +54,7 @@ export async function checkInBooking(input: {
       if (booking.status !== "CONFIRMED")
         return { ok: false, code: "INVALID_STATE" };
       if (booking.checkedInAt) return { ok: false, code: "ALREADY_CHECKED_IN" };
-      if (!isWithinPhotoSessionWindow(now, booking.startAt))
+      if (!isWithinPhotoSessionWindow(now, booking.startAt, booking.endAt))
         return { ok: false, code: "OUTSIDE_SCHEDULE" };
 
       const payments = await tx.$queryRaw<Array<{ status: string }>>`
@@ -98,7 +98,7 @@ export async function assignBooth(input: {
         if (
           booking.status !== "CONFIRMED" ||
           !booking.checkedInAt ||
-          !isWithinPhotoSessionWindow(now, booking.startAt)
+          !isWithinPhotoSessionWindow(now, booking.startAt, booking.endAt)
         ) {
           return { ok: false, code: "INVALID_STATE" };
         }
@@ -219,7 +219,7 @@ export async function startPhotoSession(input: {
         if (
           booking.status !== "CONFIRMED" ||
           !booking.checkedInAt ||
-          !isWithinPhotoSessionWindow(now, booking.startAt)
+          !isWithinPhotoSessionWindow(now, booking.startAt, booking.endAt)
         ) {
           return { ok: false, code: "INVALID_STATE" };
         }

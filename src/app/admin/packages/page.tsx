@@ -1,10 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/modules/auth/guards";
 import { deletePackage, setPackageActive } from "@/modules/packages/actions";
-import {
-  PHOTO_SESSION_BUFFER_MINUTES,
-  PHOTO_SESSION_DURATION_MINUTES,
-} from "@/modules/scheduling/session-duration";
 import Link from "next/link";
 
 type AdminPackagesPageProps = {
@@ -111,8 +107,8 @@ export default async function AdminPackagesPage({
                   <td className="px-4 py-4">
                     {formatRupiah(photoPackage.price)}
                     <div className="mt-1 text-xs text-muted-foreground">
-                      {PHOTO_SESSION_DURATION_MINUTES} menit · jeda{" "}
-                      {PHOTO_SESSION_BUFFER_MINUTES} menit
+                      {photoPackage.durationMinutes} menit · jeda{" "}
+                      {photoPackage.bufferMinutes} menit
                     </div>
                   </td>
                   <td className="px-4 py-4">{photoPackage._count.bookings}</td>

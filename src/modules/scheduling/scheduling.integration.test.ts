@@ -68,7 +68,8 @@ describe("availability and schedule blocks against PostgreSQL", () => {
         name: "Scheduling Fixture Package",
         description: "Integration fixture",
         price: 100_000,
-        durationMinutes: 60,
+        durationMinutes: 10,
+        bufferMinutes: 2,
       },
     });
     packageId = photoPackage.id;
