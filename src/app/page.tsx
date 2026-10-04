@@ -49,7 +49,7 @@ export default async function Home() {
       where: { isPublished: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
       take: 3,
-      select: { id: true, imageUrl: true, caption: true },
+      select: { id: true, imageUrl: true },
     }),
     prisma.operatingHour.findMany({
       orderBy: { weekday: "asc" },
@@ -242,28 +242,22 @@ export default async function Home() {
           </div>
 
           <ul className="mt-6 grid gap-4 sm:grid-cols-3">
-            {gallery.map(
-              (item: {
-                id: string;
-                imageUrl: string;
-                caption: string | null;
-              }) => (
-                <li
-                  key={item.id}
-                  className="group relative h-64 overflow-hidden rounded-[1.5rem] bg-[#eaf2ff] shadow-[0_18px_35px_rgba(37,74,138,0.07)] sm:h-72"
-                >
-                  <Image
-                    src={item.imageUrl}
-                    alt={item.caption || "Hasil sesi foto di Fotiu Studio"}
-                    fill
-                    unoptimized
-                    sizes="(max-width: 640px) 100vw, 33vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#221816]/65 via-transparent to-transparent" />
-                </li>
-              ),
-            )}
+            {gallery.map((item: { id: string; imageUrl: string }) => (
+              <li
+                key={item.id}
+                className="group relative h-64 overflow-hidden rounded-[1.5rem] bg-[#eaf2ff] shadow-[0_18px_35px_rgba(37,74,138,0.07)] sm:h-72"
+              >
+                <Image
+                  src={item.imageUrl}
+                  alt="Hasil sesi foto di Fotiu Studio"
+                  fill
+                  unoptimized
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#221816]/65 via-transparent to-transparent" />
+              </li>
+            ))}
           </ul>
         </section>
       )}

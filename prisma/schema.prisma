@@ -132,7 +132,6 @@ model Package {
   createdAt       DateTime       @default(now()) @db.Timestamptz(3)
   updatedAt       DateTime       @updatedAt @db.Timestamptz(3)
   bookings        Booking[]
-  galleryImages   GalleryImage[]
 
   @@index([isActive, sortOrder])
   @@map("packages")
@@ -237,12 +236,9 @@ model GalleryImage {
   id          String   @id @default(cuid())
   imageUrl    String
   storageKey  String
-  caption     String?
-  packageId   String?
   sortOrder   Int      @default(0)
   isPublished Boolean  @default(false)
   createdAt   DateTime @default(now()) @db.Timestamptz(3)
-  package     Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
 
   @@map("gallery_images")
 }

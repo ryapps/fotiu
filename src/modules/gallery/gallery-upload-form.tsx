@@ -14,9 +14,7 @@ import {
   type FormEvent,
 } from "react";
 
-type PackageOption = { id: string; name: string };
-
-export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
+export function GalleryUploadForm() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"error" | "success" | "info">(
@@ -28,15 +26,9 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!selectedFile) {
-      setPreviewUrl("");
-      return;
-    }
-
-    const url = URL.createObjectURL(selectedFile);
-    setPreviewUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [selectedFile]);
+    if (!previewUrl) return;
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   function selectFile(file?: File) {
     if (!file) return;
@@ -46,6 +38,7 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
       )
     ) {
       setSelectedFile(null);
+      setPreviewUrl("");
       setMessageType("error");
       setMessage("Gunakan gambar JPG, PNG, atau WebP.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -53,12 +46,14 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
     }
     if (file.size > 10 * 1024 * 1024) {
       setSelectedFile(null);
+      setPreviewUrl("");
       setMessageType("error");
       setMessage("Ukuran gambar maksimal 10 MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
     setMessage("");
   }
 
@@ -70,6 +65,7 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
 
   function clearFile() {
     setSelectedFile(null);
+    setPreviewUrl("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -77,13 +73,11 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
     event.preventDefault();
     setMessage("");
     const form = event.currentTarget;
-    const data = new FormData(form);
     const file = selectedFile;
     if (!file) {
       setMessageType("error");
       return setMessage("Pilih gambar yang akan diunggah.");
     }
-    data.set("file", file);
     setMessageType("info");
     setMessage("Mengunggah gambar...");
     setBusy(true);
@@ -116,8 +110,6 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
       const saved = await saveGalleryImage({
         storageKey: requested.storageKey,
         contentType: file.type,
-        caption: String(data.get("caption") ?? ""),
-        packageId: String(data.get("packageId") ?? "") || null,
       });
       if (!saved.ok)
         return (
@@ -130,6 +122,7 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
         );
       form.reset();
       setSelectedFile(null);
+      setPreviewUrl("");
       setMessageType("success");
       setMessage(
         "Gambar tersimpan sebagai draft. Publikasikan setelah diperiksa.",
@@ -265,39 +258,6 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
           Pilih satu gambar dalam format JPG, PNG, atau WebP. Ukuran maksimum 10
           MB.
         </p>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-2 text-sm font-medium">
-            Caption{" "}
-            <span className="font-normal text-muted-foreground">
-              (opsional)
-            </span>
-            <input
-              name="caption"
-              maxLength={240}
-              placeholder="Contoh: Sesi portrait di Fotiu Studio"
-              className="h-11 rounded-lg border border-input bg-background px-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-          </label>
-          <label className="grid gap-2 text-sm font-medium">
-            Package{" "}
-            <span className="font-normal text-muted-foreground">
-              (opsional)
-            </span>
-            <select
-              name="packageId"
-              defaultValue=""
-              className="h-11 rounded-lg border border-input bg-background px-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <option value="">Tanpa package</option>
-              {packages.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
 
         <div className="flex flex-col-reverse gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
           <p

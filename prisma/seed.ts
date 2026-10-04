@@ -1,6 +1,6 @@
-import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import "dotenv/config";
 import { z } from "zod";
 
 const seedEnvSchema = z.object({
@@ -73,16 +73,13 @@ async function main() {
     },
   ];
 
-  const seededPackages = new Map<string, string>();
-
   for (const packageData of packages) {
     const { slug, ...data } = packageData;
-    const saved = await prisma.package.upsert({
+    await prisma.package.upsert({
       where: { slug },
       create: { slug, ...data },
       update: {},
     });
-    seededPackages.set(slug, saved.id);
   }
 
   const galleryImages = [
@@ -90,24 +87,18 @@ async function main() {
       id: "seed-gallery-portrait",
       imageUrl: "/images/gallery-portrait.svg",
       storageKey: "seed/gallery-portrait.svg",
-      caption: "Contoh portrait",
-      packageId: seededPackages.get("portrait-basic"),
       sortOrder: 1,
     },
     {
       id: "seed-gallery-family",
       imageUrl: "/images/gallery-family.svg",
       storageKey: "seed/gallery-family.svg",
-      caption: "Contoh sesi keluarga",
-      packageId: seededPackages.get("family-session"),
       sortOrder: 2,
     },
     {
       id: "seed-gallery-graduation",
       imageUrl: "/images/gallery-graduation.svg",
       storageKey: "seed/gallery-graduation.svg",
-      caption: "Contoh sesi wisuda",
-      packageId: seededPackages.get("graduation-session"),
       sortOrder: 3,
     },
   ];

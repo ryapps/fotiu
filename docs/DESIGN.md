@@ -170,7 +170,8 @@ PostgreSQL dengan Prisma. Semua waktu memakai `timestamptz` (UTC). Uang disimpan
 ### `gallery_images`
 
 - **Purpose:** gambar gallery publik.
-- **Fields:** `id`, `imageUrl`, `storageKey`, `caption`, `packageId` (opsional), `sortOrder`, `isPublished`, `createdAt`.
+- **Fields:** `id`, `imageUrl`, `storageKey`, `sortOrder`, `isPublished`, `createdAt`.
+- Gambar berdiri sendiri tanpa caption maupun relasi ke package.
 
 ### `bookings` (check-in additions)
 
@@ -227,7 +228,6 @@ erDiagram
     photo_sessions ||--o{ booth_events : updates
     payments ||--o{ payment_events : receives
     admins ||--o{ schedule_blocks : creates
-    packages ||--o{ gallery_images : "optional link"
 
     users {
         string id PK
@@ -292,7 +292,6 @@ erDiagram
     gallery_images {
         string id PK
         string imageUrl
-        string packageId FK
         boolean isPublished
     }
     booths {
@@ -550,7 +549,7 @@ Konvensi: **Server Action (SA)** untuk mutasi dari UI, **Server Component query 
 | `assignBooth`                                 | SA                  | Admin | `bookingId`, `boothId`                         | Photo session READY                                         | booking checked-in; booth ONLINE; no active session; DB constraint                                        | NotFound, Conflict, InvalidState      |
 | `startPhotoSession`                           | SA                  | Admin | `photoSessionId`                               | Command PENDING + session STARTING                          | session READY; booking CONFIRMED + PAID; booth ONLINE; no active command                                  | NotFound, Conflict, InvalidState      |
 | `completeBookingManually`                     | SA                  | Admin | `bookingId`, `reason`                          | Booking COMPLETED                                           | only recovery; record actor/reason; verify session has actually ended and record manual completion source | InvalidState, RuleViolation           |
-| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga Rp20.000–Rp40.000, durasi 5–60 menit, jeda 2 menit, slug unik)                                  | Validation, Conflict (slug)           |
+| `createPackage` / `updatePackage`             | SA                  | Admin | field package                                  | Package                                                     | Zod (harga Rp20.000–Rp40.000, durasi 5–60 menit, jeda 2 menit, slug unik)                                 | Validation, Conflict (slug)           |
 | `togglePackageActive`                         | SA                  | Admin | `packageId`, `isActive`                        | Package                                                     | -                                                                                                         | NotFound                              |
 | `deletePackage`                               | SA                  | Admin | `packageId`                                    | OK                                                          | tidak punya booking                                                                                       | RuleViolation                         |
 | `upsertOperatingHours`                        | SA                  | Admin | 7 hari (`isOpen`, `openTime`, `closeTime`)     | OK                                                          | open < close, format HH:mm                                                                                | Validation                            |

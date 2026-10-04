@@ -17,8 +17,6 @@ export default async function GalleryPage() {
     select: {
       id: true,
       imageUrl: true,
-      caption: true,
-      package: { select: { name: true } },
     },
   });
   return (
@@ -62,23 +60,13 @@ export default async function GalleryPage() {
               <div className="relative h-72 overflow-hidden bg-secondary">
                 <Image
                   src={image.imageUrl}
-                  alt={image.caption || "Hasil sesi foto Fotiu"}
+                  alt="Hasil sesi foto Fotiu Studio"
                   fill
                   unoptimized
                   sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#1d1413]/60 via-transparent to-transparent" />
-              </div>
-              <div className="p-4">
-                <p className="font-medium text-foreground">
-                  {image.caption || image.package?.name || "Fotiu Studio"}
-                </p>
-                {image.package && (
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {image.package.name}
-                  </p>
-                )}
               </div>
             </li>
           ))}
