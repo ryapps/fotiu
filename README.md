@@ -20,6 +20,16 @@ production.
 Set `ADMIN_SEED_EMAIL` dan `ADMIN_SEED_PASSWORD` di `.env` sebelum menjalankan
 `npm run db:seed`. Seed memakai bcrypt dengan cost 12.
 
+Untuk database production, gunakan `npm run db:seed:production` dengan
+`DATABASE_URL_PRODUCTION` dan `PRODUCTION_SEED_TARGET` dari secret manager atau
+environment terminal production. `PRODUCTION_SEED_TARGET` harus sama dengan
+`<hostname>/<nama-database>` pada `DATABASE_URL_PRODUCTION`; script menolak
+database lokal dan tidak memakai `DATABASE_URL` development. Seed ini hanya membuat tiga customer sintetis dengan
+email `.invalid` serta booking demo historis berstatus `CANCELLED`. Package
+aktif harus sudah tersedia; seed tidak membuat admin, jam operasional, package,
+payment, atau gallery. Jangan menaruh kredensial production di repository atau
+mengirimkannya melalui chat.
+
 Login Google memerlukan OAuth client. Isi `AUTH_GOOGLE_ID` dan
 `AUTH_GOOGLE_SECRET` di `.env`, lalu daftarkan callback lokal
 `http://localhost:3000/api/auth/callback/google` pada Google OAuth client.

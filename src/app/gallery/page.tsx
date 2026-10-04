@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
+import { BackButton } from "./back-button"; 
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export default async function GalleryPage() {
   });
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
       <header className="mb-8 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_24px_64px_rgba(40,80,150,0.07)] sm:p-8">
         <div className="max-w-2xl space-y-3">
           <span className="feature-badge">

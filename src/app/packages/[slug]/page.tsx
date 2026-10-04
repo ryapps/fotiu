@@ -4,8 +4,8 @@ import { AvailabilityPicker } from "@/modules/scheduling/availability-picker";
 import { addCalendarDays, getLocalDate } from "@/modules/scheduling/time";
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BackButton } from "./back-button";
 
 type PackagePageProps = { params: Promise<{ slug: string }> };
 
@@ -54,13 +54,7 @@ export default async function PackageDetailPage({ params }: PackagePageProps) {
 
   return (
     <main className="mx-auto w-full max-w-5xl flex-1 px-5 py-12 sm:px-8">
-      <Link
-        className="inline-flex items-center gap-2 text-sm font-medium text-primary transition-colors hover:text-primary/80"
-        href="/packages"
-      >
-        <span aria-hidden="true">←</span>
-        Semua paket
-      </Link>
+      <BackButton />
 
       <article className="mt-6 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-white via-[#f7faff] to-[#eaf3ff] shadow-[0_26px_70px_rgba(40,80,150,0.08)] md:grid md:grid-cols-2">
         {photoPackage.coverImageUrl ? (
