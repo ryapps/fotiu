@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
+import { BackButton } from "./[slug]/back-button";
 
 export const dynamic = "force-dynamic";
 
@@ -119,6 +120,9 @@ function PackageGridLoading() {
 export default function PackagesPage() {
   return (
     <main className="mx-auto w-full max-w-6xl flex-1 px-5 py-12 sm:px-8">
+      <div className="mb-6">
+        <BackButton />
+      </div>
       <header className="mb-8 overflow-hidden rounded-[2rem] border border-primary/10 bg-gradient-to-br from-[#eef6ff] via-white to-[#eaf2ff] p-6 shadow-[0_24px_64px_rgba(40,80,150,0.07)] sm:p-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl space-y-3">
@@ -133,26 +137,6 @@ export default function PackagesPage() {
               Lihat pilihan sesi, durasi, dan harga dengan tampilan yang lebih
               jelas sebelum memilih jadwal.
             </p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[320px]">
-            <div className="soft-card p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Durasi
-              </p>
-              <p className="mt-2 text-lg font-semibold">Variatif</p>
-            </div>
-            <div className="soft-card p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Harga
-              </p>
-              <p className="mt-2 text-lg font-semibold">Mulai</p>
-            </div>
-            <div className="soft-card p-3 text-center">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                Slot
-              </p>
-              <p className="mt-2 text-lg font-semibold">Update</p>
-            </div>
           </div>
         </div>
       </header>
