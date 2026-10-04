@@ -4,28 +4,88 @@ import {
   requestGalleryUpload,
   saveGalleryImage,
 } from "@/modules/gallery/actions";
-import { useState, type FormEvent } from "react";
+import { ImagePlus, LoaderCircle, Upload, X } from "lucide-react";
+import Image from "next/image";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 
 type PackageOption = { id: string; name: string };
 
 export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [messageType, setMessageType] = useState<"error" | "success" | "info">(
+    "info",
+  );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [dragging, setDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl("");
+      return;
+    }
+
+    const url = URL.createObjectURL(selectedFile);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedFile]);
+
+  function selectFile(file?: File) {
+    if (!file) return;
+    if (
+      !(["image/jpeg", "image/png", "image/webp"] as string[]).includes(
+        file.type,
+      )
+    ) {
+      setSelectedFile(null);
+      setMessageType("error");
+      setMessage("Gunakan gambar JPG, PNG, atau WebP.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setSelectedFile(null);
+      setMessageType("error");
+      setMessage("Ukuran gambar maksimal 10 MB.");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setSelectedFile(file);
+    setMessage("");
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    if (!busy) selectFile(event.dataTransfer.files[0]);
+  }
+
+  function clearFile() {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
     const form = event.currentTarget;
     const data = new FormData(form);
-    const file = data.get("file");
-    if (!(file instanceof File))
+    const file = selectedFile;
+    if (!file) {
+      setMessageType("error");
       return setMessage("Pilih gambar yang akan diunggah.");
-    if (
-      !(["image/jpeg", "image/png", "image/webp"] as string[]).includes(
-        file.type,
-      )
-    )
-      return setMessage("Gunakan gambar JPG, PNG, atau WebP.");
+    }
+    data.set("file", file);
+    setMessageType("info");
+    setMessage("Mengunggah gambar...");
     setBusy(true);
     try {
       const requested = await requestGalleryUpload({
@@ -33,10 +93,13 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
         size: file.size,
       });
       if (!requested.ok)
-        return setMessage(
-          requested.code === "INVALID_FILE"
-            ? "Format atau ukuran file tidak valid (maksimal 10 MB)."
-            : "Object storage belum siap.",
+        return (
+          setMessageType("error"),
+          setMessage(
+            requested.code === "INVALID_FILE"
+              ? "Format atau ukuran file tidak valid (maksimal 10 MB)."
+              : "Object storage belum siap.",
+          )
         );
       const uploaded = await fetch(requested.uploadUrl, {
         method: "PUT",
@@ -44,8 +107,11 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
         body: file,
       });
       if (!uploaded.ok)
-        return setMessage(
-          "Upload gagal. Periksa koneksi dan konfigurasi CORS bucket.",
+        return (
+          setMessageType("error"),
+          setMessage(
+            "Upload gagal. Periksa koneksi dan konfigurasi CORS bucket.",
+          )
         );
       const saved = await saveGalleryImage({
         storageKey: requested.storageKey,
@@ -54,17 +120,23 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
         packageId: String(data.get("packageId") ?? "") || null,
       });
       if (!saved.ok)
-        return setMessage(
-          saved.code === "INVALID_FILE"
-            ? "Isi file tidak cocok dengan format gambar."
-            : "Gambar terunggah, tetapi metadata belum dapat disimpan.",
+        return (
+          setMessageType("error"),
+          setMessage(
+            saved.code === "INVALID_FILE"
+              ? "Isi file tidak cocok dengan format gambar."
+              : "Gambar terunggah, tetapi metadata belum dapat disimpan.",
+          )
         );
       form.reset();
+      setSelectedFile(null);
+      setMessageType("success");
       setMessage(
         "Gambar tersimpan sebagai draft. Publikasikan setelah diperiksa.",
       );
       window.location.reload();
     } catch {
+      setMessageType("error");
       setMessage("Object storage belum siap atau upload gagal.");
     } finally {
       setBusy(false);
@@ -74,57 +146,191 @@ export function GalleryUploadForm({ packages }: { packages: PackageOption[] }) {
   return (
     <form
       onSubmit={submit}
-      className="grid gap-4 rounded-2xl border border-primary/10 bg-white/80 p-5 shadow-[0_12px_28px_rgba(37,74,138,0.04)] sm:grid-cols-2"
+      className="mt-6 overflow-hidden rounded-2xl border border-primary/10 bg-white/90 shadow-[0_16px_40px_rgba(37,74,138,0.06)]"
     >
-      <label className="grid gap-2 text-sm font-medium">
-        Gambar (JPG, PNG, WebP; maks. 10 MB)
-        <input
-          name="file"
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          required
-          className="rounded-md border p-2"
-        />
-      </label>
-      <label className="grid gap-2 text-sm font-medium">
-        Caption
-        <input
-          name="caption"
-          maxLength={240}
-          className="rounded-md border px-3 py-2"
-        />
-      </label>
-      <label className="grid gap-2 text-sm font-medium">
-        Package (opsional)
-        <select
-          name="packageId"
-          defaultValue=""
-          className="rounded-md border px-3 py-2"
-        >
-          <option value="">Tanpa package</option>
-          {packages.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <div className="flex items-end">
-        <button
-          disabled={busy}
-          className="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {busy ? "Mengunggah…" : "Upload sebagai draft"}
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 px-5 py-4 sm:px-6">
+        <div>
+          <h2 className="font-semibold">Tambah gambar</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Unggah ke gallery sebagai draft.
+          </p>
+        </div>
+        <span className="rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary">
+          JPG, PNG, WebP · maks. 10 MB
+        </span>
       </div>
-      {message && (
-        <p
-          role="status"
-          className="text-sm text-muted-foreground sm:col-span-2"
+
+      <div className="grid gap-5 p-5 sm:p-6">
+        <div
+          onDragEnter={(event) => {
+            event.preventDefault();
+            if (!busy) setDragging(true);
+          }}
+          onDragOver={(event) => event.preventDefault()}
+          onDragLeave={(event) => {
+            if (
+              !event.currentTarget.contains(event.relatedTarget as Node | null)
+            ) {
+              setDragging(false);
+            }
+          }}
+          onDrop={handleDrop}
+          className={`relative overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+            dragging
+              ? "border-primary bg-primary/5"
+              : "border-primary/20 bg-[#f7faff] hover:border-primary/40"
+          }`}
         >
-          {message}
+          <input
+            ref={fileInputRef}
+            id="gallery-image-file"
+            name="file"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            aria-label="Pilih gambar untuk gallery"
+            aria-describedby="gallery-file-help gallery-upload-feedback"
+            disabled={busy}
+            className="sr-only"
+            onChange={(event) => selectFile(event.currentTarget.files?.[0])}
+          />
+          {selectedFile && previewUrl ? (
+            <div className="grid sm:grid-cols-[180px_1fr]">
+              <div className="relative aspect-[4/3] bg-secondary sm:aspect-auto sm:min-h-40">
+                <Image
+                  src={previewUrl}
+                  alt={`Pratinjau ${selectedFile.name}`}
+                  fill
+                  unoptimized
+                  sizes="180px"
+                  className="object-cover"
+                />
+              </div>
+              <div className="flex min-w-0 items-center justify-between gap-4 p-4 sm:p-5">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold">
+                    {selectedFile.name}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB · Siap
+                    diunggah
+                  </p>
+                  <label
+                    htmlFor="gallery-image-file"
+                    className="mt-3 inline-flex cursor-pointer items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <Upload aria-hidden="true" className="h-4 w-4" />
+                    Ganti gambar
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearFile}
+                  disabled={busy}
+                  aria-label="Hapus gambar terpilih"
+                  title="Hapus gambar"
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-white text-muted-foreground transition-colors hover:border-destructive/30 hover:bg-destructive/5 hover:text-destructive disabled:opacity-50"
+                >
+                  <X aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label
+              htmlFor="gallery-image-file"
+              className="flex min-h-48 cursor-pointer flex-col items-center justify-center px-5 py-8 text-center sm:min-h-56"
+            >
+              <span className="mb-3 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-white text-primary shadow-sm ring-1 ring-primary/10">
+                <ImagePlus aria-hidden="true" className="h-6 w-6" />
+              </span>
+              <span className="text-sm font-semibold text-foreground">
+                {dragging
+                  ? "Lepaskan gambar untuk memilih"
+                  : "Seret gambar ke sini"}
+              </span>
+              <span className="mt-1 text-sm text-muted-foreground">
+                atau pilih file dari perangkat
+              </span>
+              <span className="mt-4 inline-flex h-9 items-center gap-2 rounded-full border border-primary/15 bg-white px-4 text-sm font-medium text-primary shadow-sm">
+                <Upload aria-hidden="true" className="h-4 w-4" />
+                Pilih gambar
+              </span>
+            </label>
+          )}
+        </div>
+
+        <p
+          id="gallery-file-help"
+          className="-mt-3 text-xs text-muted-foreground"
+        >
+          Pilih satu gambar dalam format JPG, PNG, atau WebP. Ukuran maksimum 10
+          MB.
         </p>
-      )}
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="grid gap-2 text-sm font-medium">
+            Caption{" "}
+            <span className="font-normal text-muted-foreground">
+              (opsional)
+            </span>
+            <input
+              name="caption"
+              maxLength={240}
+              placeholder="Contoh: Sesi portrait di Fotiu Studio"
+              className="h-11 rounded-lg border border-input bg-background px-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+          <label className="grid gap-2 text-sm font-medium">
+            Package{" "}
+            <span className="font-normal text-muted-foreground">
+              (opsional)
+            </span>
+            <select
+              name="packageId"
+              defaultValue=""
+              className="h-11 rounded-lg border border-input bg-background px-3 font-normal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">Tanpa package</option>
+              {packages.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="flex flex-col-reverse gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p
+            id="gallery-upload-feedback"
+            role={messageType === "error" ? "alert" : "status"}
+            aria-live="polite"
+            className={`min-h-5 text-sm ${
+              messageType === "error"
+                ? "text-destructive"
+                : messageType === "success"
+                  ? "text-primary"
+                  : "text-muted-foreground"
+            }`}
+          >
+            {message}
+          </p>
+          <button
+            type="submit"
+            disabled={busy}
+            className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+          >
+            {busy ? (
+              <LoaderCircle
+                aria-hidden="true"
+                className="h-4 w-4 animate-spin"
+              />
+            ) : (
+              <Upload aria-hidden="true" className="h-4 w-4" />
+            )}
+            {busy ? "Mengunggah..." : "Upload sebagai draft"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }
