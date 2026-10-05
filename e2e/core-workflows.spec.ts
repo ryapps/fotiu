@@ -345,7 +345,17 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
   for (const path of ["/", "/gallery", "/packages", "/login"]) {
     const response = await page.goto(path);
     expect(response?.status()).toBe(200);
-    expect(response?.headers()["x-frame-options"]).toBe("DENY");
+    if (path === "/login") {
+      expect(response?.headers()["x-frame-options"]).toBe("DENY");
+      expect(response?.headers()["content-security-policy"]).toBe(
+        "frame-ancestors 'none';",
+      );
+    } else {
+      expect(response?.headers()["x-frame-options"]).toBeUndefined();
+      expect(response?.headers()["content-security-policy"]).toContain(
+        "frame-ancestors ",
+      );
+    }
     expect(response?.headers()["x-content-type-options"]).toBe("nosniff");
     await page.keyboard.press("Tab");
     const skipLink = page.getByRole("link", { name: "Lewati ke konten utama" });
@@ -361,9 +371,9 @@ test("public and login pages fit a mobile viewport and support keyboard navigati
           : path === "/packages"
             ? "Pilih sesi foto yang paling cocok"
             : "Masuk sebagai customer";
-    await expect(
-      page.getByRole("heading", { level: 1 }),
-    ).toContainText(heading);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      heading,
+    );
     await expectNoHorizontalOverflow(page);
   }
 });

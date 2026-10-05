@@ -663,7 +663,8 @@ Check-in, assignment, start session, dan recovery berada pada booking detail adm
 - **Rate limiting:** pada login admin, pembuatan booking, dan pembuatan QRIS. Karena serverless tidak berbagi memori, gunakan rate limit rules di Vercel Firewall atau penghitung sederhana berbasis database. Tidak memakai infrastruktur tambahan dulu. Webhook tidak dibatasi agresif.
 - Implementasi login admin saat ini memakai penghitung database `admin_login_attempts`; baris yang tidak diperbarui selama 24 jam dibersihkan saat ada kegagalan login baru.
 - `createBooking` dibatasi 10 request per customer per 60 detik dan `createPayment` 5 per customer per 15 menit menggunakan upsert atomik pada tabel `rate_limit_buckets`; key disimpan sebagai SHA-256. Ini membatasi aksi per akun, bukan mitigasi volumetric abuse per IP.
-- Security headers ditetapkan di Next config: `nosniff`, frame deny, strict referrer, dan pembatasan browser capability; HSTS aktif hanya pada production.
+- Security headers ditetapkan di Next config: `nosniff`, CSP `frame-ancestors` (default deny; halaman publik `/`, `/gallery`, `/packages`, `/packages/:slug` hanya mengizinkan origin eksplisit dari `PORTFOLIO_EMBED_ORIGINS`), strict referrer, dan pembatasan browser capability; HSTS aktif hanya pada production.
+- Login, admin, dashboard, API, dan `/packages/:slug/book` tetap memakai CSP deny dan `X-Frame-Options: DENY`. Origin embed divalidasi tanpa wildcard, credentials, path, query, atau fragment; HTTP hanya untuk loopback lokal. Perubahan origin memerlukan rebuild/deploy.
 - **Header dan lainnya:** security header standar Next.js, cookie `httpOnly`, `secure`, `sameSite=lax`, dan query lewat Prisma (parameterized). Bila memakai `$queryRaw`, wajib memakai tagged template, bukan string concatenation.
 
 ## 20. Infrastructure

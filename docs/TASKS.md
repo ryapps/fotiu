@@ -1122,3 +1122,9 @@ deployment memiliki URL HTTPS tetap. Smoke test production juga tetap terbuka.
 - [x] FreeBooth terpilih untuk demo berdasarkan dokumentasi resmi; capability remote dinyatakan unsupported
 - [x] Workflow operator manual tersedia dengan heartbeat booth dan audited manual completion
 - [ ] Validasi FreeBooth, kamera, dan folder tethering pada komputer booth studio
+
+## Follow-up: iframe portfolio Webtiver
+
+- Implementasikan allowlist origin lewat `PORTFOLIO_EMBED_ORIGINS` untuk halaman publik saja, dengan default deny dan validasi origin.
+- Pertahankan frame deny pada login, admin, dashboard, API, dan form booking.
+- Verifikasi unit test kebijakan, header hasil build, lint, dan typecheck; aktivasi production memerlukan environment variable dan redeploy Fotiu.

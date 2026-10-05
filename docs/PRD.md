@@ -523,3 +523,7 @@ Di luar MVP, dapat dipertimbangkan kemudian:
 - Multiple real photobooth adapters, multi-booth, dan multi-branch.
 - Self check-in QR, status sesi customer, automatic photo delivery/gallery, dan signed photo download URL.
 - Remote booth configuration, diagnostics, print queue monitoring, advanced booth analytics, staff/photographer assignment, dan session audit timeline lanjutan.
+
+## Demo portfolio Webtiver
+
+Halaman publik homepage, galeri, daftar paket, dan detail paket dapat ditampilkan melalui iframe hanya pada origin portfolio yang dikonfigurasi. Halaman login, admin, dashboard, booking, dan API tidak dapat di-embed. Login dan transaksi dilakukan dengan membuka Fotiu langsung di tab terpisah. Tidak ada perubahan alur autentikasi atau booking.

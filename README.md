@@ -111,3 +111,28 @@ memerlukan redirect URI production pada Google Cloud; upload galeri memerlukan
 konfigurasi storage. Settlement QRIS lewat webhook Midtrans dan alur agent
 photobooth pada deployment ini masih perlu diverifikasi. Screenshot di atas
 masih pratinjau lokal.
+
+
+## Iframe portfolio Webtiver
+
+Di environment **project Fotiu** pada Vercel, atur:
+
+```dotenv
+PORTFOLIO_EMBED_ORIGINS=https://webtiver.vercel.app
+```
+
+Lalu rebuild/redeploy Fotiu. Untuk menguji Webtiver lokal, tambahkan origin lokal
+secara eksplisit, misalnya `,http://localhost:3000,http://localhost:3100`.
+Saat Webtiver pindah ke custom domain, perbarui daftar ini dan redeploy Fotiu.
+Nilai berupa origin lengkap, dipisahkan koma, tanpa path atau wildcard.
+Variabel kosong berarti semua embedding ditolak.
+
+Hanya `/`, `/gallery`, `/packages`, dan `/packages/:slug` yang dapat di-embed.
+Login, admin, dashboard, API, dan booking tetap dilindungi. Gunakan tombol
+**Open Full Website** pada Webtiver untuk login atau melakukan transaksi.
+Webtiver tetap memakai iframe yang sudah ada; perubahan header berasal dari Fotiu.
+
+Verifikasi setelah deploy: header homepage harus berisi
+`Content-Security-Policy: frame-ancestors https://webtiver.vercel.app;`, tanpa
+`X-Frame-Options: DENY`. `/login` tetap memiliki CSP `frame-ancestors 'none';`
+dan `X-Frame-Options: DENY`. Buka demo Fotiu dari Webtiver untuk memeriksa embed.
